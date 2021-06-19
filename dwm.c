@@ -1960,11 +1960,11 @@ tile(Monitor *m)
 	for(i = 0, my = ty = gx, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
 		if (i < m->nmaster) {
 			h = (m->wh - my) / (MIN(n, m->nmaster) - i) - gx;
-			resize(c, m->wx + gx, m->wy + my, mw - (2*c->bw) - gx*(5-ns)/2, h - (2*c->bw), bw, False);
+			resize(c, m->wx + gx, m->wy + my, mw - (2*bw) - gx*(5-ns)/2, h - (2*bw), bw, False);
 			my += HEIGHT(c) + gx;
 		} else {
 			h = (m->wh - ty) / (n - i) - gx;
-			resize(c, m->wx + mw + gx/ns, m->wy + ty, m->ww - mw - (2*c->bw) - gx*(5-ns)/2, h - (2*c->bw), bw, False);
+			resize(c, m->wx + mw + gx/ns, m->wy + ty, m->ww - mw - (2*bw) - gx*(5-ns)/2, h - (2*bw), bw, False);
 			ty += HEIGHT(c) + gx;
 		}
 }
