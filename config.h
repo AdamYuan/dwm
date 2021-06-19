@@ -4,12 +4,10 @@
 static const unsigned int borderpx = 1; /* border pixel of windows */
 static const unsigned int gappx = 12;       /* gap pixel between windows */
 static const unsigned int snap = 32;    /* snap pixel */
-static const char panel[][20]       = { "xfce4-panel", "Xfce4-panel" }; /* name & cls of panel win */
+static const char *const panel[] = { "xfce4-panel", "Xfce4-panel" }; /* name & cls of panel win */
 
 static const int showbar = 1;           /* 0 means no bar */
 static const int topbar = 1;            /* 0 means bottom bar */
-
-static const int nmaxmaster = 2;        /* maximum number of clients allowed in master area */
 
 static const int focusonwheel = 0;
 /*  Display modes of the tab bar: never shown, always shown, shown only in  */
@@ -19,10 +17,10 @@ enum showtab_modes { showtab_never, showtab_auto, showtab_nmodes, showtab_always
 static const int showtab = showtab_auto; /* Default tab bar show mode */
 static const int toptab = False;         /* False means bottom tab bar */
 
-static const char *fonts[] = {"Noto Sans:pixelsize=16:antialias=true"};
+static const char *fonts[] = {"Noto Sans:pixelsize=16:style=Bold:antialias=true"};
 static const char *colors[][3] = {
 	/*               fg         bg         border   */
-	[SchemeNorm] = {"#888888", "#222B2E", "#222B2E"},
+	[SchemeNorm] = {"#aaaaaa", "#222B2E", "#222B2E"},
 	[SchemeSel] = {"#000000", "#2EB398", "#2EB398"},
 	[SchemeTitle] = {"#ffffff", "#222B2E", "#222B2E"},
 };
@@ -57,8 +55,9 @@ static const Rule rules[] = {
 };
 
 /* layout(s) */
-static const float mfact = 0.55;  /* factor of master area size [0.05..0.95] */
+static const float mfact = 0.7;  /* factor of master area size [0.05..0.95] */
 static const int nmaster = 1;     /* number of clients in master area */
+static const int nmaxmaster = 2;        /* maximum number of clients allowed in master area */
 static const int resizehints = 0; /* 1 means respect size hints in tiled resizals */
 
 static const Layout layouts[] = {
@@ -93,13 +92,13 @@ static Key keys[] = {
 	//{MODKEY, XK_b, togglebar, {0}},
 	//{MODKEY, XK_w, tabmode, {-1}},
 	{MODKEY, XK_j, focusstack, {.i = +1}},
-	{MODKEY, XK_Right, focusstack, {.i = +1}},
+	//{MODKEY, XK_Right, focusstack, {.i = +1}},
 	{MODKEY, XK_k, focusstack, {.i = -1}},
-	{MODKEY, XK_Left, focusstack, {.i = -1}},
+	//{MODKEY, XK_Left, focusstack, {.i = -1}},
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
-	{MODKEY, XK_Down, setmfact, {.f = -0.05}},
+	//{MODKEY, XK_Down, setmfact, {.f = -0.05}},
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
-	{MODKEY, XK_Up, setmfact, {.f = +0.05}},
+	//{MODKEY, XK_Up, setmfact, {.f = +0.05}},
 	{MODKEY, XK_o, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},

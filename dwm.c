@@ -833,9 +833,14 @@ drawbar(Monitor *m)
 		drw_text(drw, m->ww - sw, 0, sw, bh, 0, stext, 0);
 	}
 
+	int xpw = 0; // xfce4-panel width
+
 	for (c = m->clients; c; c = c->next) {
         // prevent showing the panel as active application:
-        if (ispanel(c)) continue;
+		if (ispanel(c)) {
+			xpw = c->w;
+			continue;
+		}
 		occ |= c->tags;
 		if (c->isurgent)
 			urg |= c->tags;
@@ -855,15 +860,19 @@ drawbar(Monitor *m)
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
-	if ((w = m->ww - sw - x) > bh) {
+	if ((w = m->ww - sw - x - xpw) > bh) {
 		if (m->sel) {
 			drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
+			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0); //DEBUG
+			if (xpw > 0) {
+				drw_setscheme(drw, scheme[SchemeNorm]);
+				drw_rect(drw, x + w, 0, xpw, bh, 1, 1);
+			}
 			if (m->sel->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
 		} else {
 			drw_setscheme(drw, scheme[SchemeNorm]);
-			drw_rect(drw, x, 0, w, bh, 1, 1);
+			drw_rect(drw, x, 0, w + xpw, bh, 1, 1);
 		}
 	}
 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
