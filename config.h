@@ -85,15 +85,20 @@ static const Layout layouts[] = {
 #define TERMRUN TERM " -e "
 
 static const char *rofiruncmd[] = {"rofi", "-show", "drun", "-modi", "drun", "-show-icons", "-font", "Noto Sans 16", "-icon-theme", "Papirus-Dark", "-run-shell-command", TERMRUN "{cmd}", NULL};
+static const char *rofiquitcmd[] = {"rofi", "-show", "p", "-modi", "p:rofi-power-menu", "-font", "NotoSans Nerd Font Regular 16", "-width", "20", "-lines", "6", NULL};
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
 	//{MODKEY, XK_b, togglebar, {0}},
 	//{MODKEY, XK_w, tabmode, {-1}},
 	{MODKEY, XK_j, focusstack, {.i = +1}},
+	{MODKEY, XK_Right, focusstack, {.i = +1}},
 	{MODKEY, XK_k, focusstack, {.i = -1}},
+	{MODKEY, XK_Left, focusstack, {.i = -1}},
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
+	{MODKEY, XK_Up, setmfact, {.f = -0.05}},
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
+	{MODKEY, XK_Down, setmfact, {.f = -0.05}},
 	{MODKEY, XK_o, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
@@ -112,14 +117,12 @@ static Key keys[] = {
 	TAGKEYS(XK_1, 0) TAGKEYS(XK_2, 1) TAGKEYS(XK_3, 2) TAGKEYS(XK_4, 3)
 
 	{MODKEY, XK_e, spawn, {.v = rofiruncmd}},
-	{MODKEY | ShiftMask, XK_q, quit, {0}},
+	{MODKEY | ShiftMask, XK_q, spawn, {.v = rofiquitcmd}},
 	{MODKEY, XK_Return, spawn, {.v = (const char *[]){TERM, NULL}}},
 	{MODKEY, XK_t, spawn, {.v = (const char *[]){"thunar", NULL}}},
 	{MODKEY, XK_w, spawn, {.v = (const char *[]){"firefox", NULL}}},
-	{MODKEY, XK_m, spawn, {.v = (const char *[]){"thunderbird", NULL}}},
+	//{MODKEY, XK_m, spawn, {.v = (const char *[]){"thunderbird", NULL}}},
 	{0, XK_Print, spawn, {.v = (const char *[]){"xfce4-screenshooter", NULL}}},
-//bindsym $mod+Shift+q  exec rofi -show p -modi p:rofi-power-menu -font "NotoSans Nerd Font Regular 16" -width 20 -lines 6
-//bindsym $mod+v        exec xfce4-terminal -e nvim -I nvim --hide-menubar --hide-scrollbar --hide-toolbar --title "NVIM"
 };
 
 /* button definitions */
