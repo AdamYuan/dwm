@@ -908,17 +908,17 @@ void
 drawtab(Monitor *m) {
 	Client *c;
 	int i;
-	int itag = -1;
-	char view_info[50];
-	int view_info_w = 0;
+	// int itag = -1;
+	// char view_info[50];
+	// int view_info_w = 0;
 	int sorted_label_widths[MAXTABS];
-	int tot_width;
+	int tot_width = 0;
 	int maxsize = bh;
 	int x = 0;
 	int w = 0;
 
 	//view_info: indicate the tag which is displayed in the view
-	for(i = 0; i < LENGTH(tags); ++i){
+	/* for(i = 0; i < LENGTH(tags); ++i){
 	  if((selmon->tagset[selmon->seltags] >> i) & 1) {
 	    if(itag >=0){ //more than one tag selected
 	      itag = -1;
@@ -926,16 +926,16 @@ drawtab(Monitor *m) {
 	    }
 	    itag = i;
 	  }
-	}
+	}*/
 
-	if(0 <= itag  && itag < LENGTH(tags)){
+	/* if(0 <= itag  && itag < LENGTH(tags)){
 	  snprintf(view_info, sizeof view_info, "[%s]", tags[itag]);
 	} else {
 	  strncpy(view_info, "[...]", sizeof view_info);
 	}
 	view_info[sizeof(view_info) - 1 ] = 0;
 	view_info_w = TEXTW(view_info);
-	tot_width = view_info_w;
+	tot_width = view_info_w;*/
 
 	/* Calculates number of labels and their width */
 	m->ntabs = 0;
@@ -950,7 +950,7 @@ drawtab(Monitor *m) {
 	if(tot_width > m->ww){ //not enough space to display the labels, they need to be truncated
 	  memcpy(sorted_label_widths, m->tab_widths, sizeof(int) * m->ntabs);
 	  qsort(sorted_label_widths, m->ntabs, sizeof(int), cmpint);
-	  tot_width = view_info_w;
+	  tot_width = 0;// view_info_w;
 	  for(i = 0; i < m->ntabs; ++i){
 	    if(tot_width + (m->ntabs - i) * sorted_label_widths[i] > m->ww)
 	      break;
@@ -975,13 +975,13 @@ drawtab(Monitor *m) {
 	drw_setscheme(drw, scheme[SchemeNorm]);
 
 	/* cleans interspace between window names and current viewed tag label */
-	w = m->ww - view_info_w - x;
+	w = m->ww - /* view_info_w - */x;
 	drw_text(drw, x, 0, w, th, 0, "", 0);
 
 	/* view info */
-	x += w;
+	/* x += w;
 	w = view_info_w;
-	drw_text(drw, x, 0, w, th, 0, view_info, 0);
+	drw_text(drw, x, 0, w, th, 0, view_info, 0); */
 
 	drw_map(drw, m->tabwin, 0, 0, m->ww, th);
 }
