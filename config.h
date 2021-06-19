@@ -98,7 +98,7 @@ static Key keys[] = {
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
 	{MODKEY, XK_Up, setmfact, {.f = -0.05}},
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
-	{MODKEY, XK_Down, setmfact, {.f = -0.05}},
+	{MODKEY, XK_Down, setmfact, {.f = +0.05}},
 	{MODKEY, XK_o, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
