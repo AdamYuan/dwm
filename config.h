@@ -19,7 +19,7 @@ enum showtab_modes { showtab_never, showtab_auto, showtab_nmodes, showtab_always
 static const int showtab = showtab_auto; /* Default tab bar show mode */
 static const int toptab = False;         /* False means bottom tab bar */
 
-static const char *fonts[] = {"Noto Sans:size=12"};
+static const char *fonts[] = {"Noto Sans:pixelsize=16:antialias=true"};
 static const char *colors[][3] = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = {"#888888", "#222B2E", "#222B2E"},
@@ -52,6 +52,7 @@ static const Rule rules[] = {
 	 *	WM_NAME(STRING) = title
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
+	{ "Steam",    NULL,       "Friends List", 0,            1,           -1 },
 	{ panel[1],   NULL,       NULL,       (1 << 9) - 1, 0,           -1 },
 };
 
@@ -96,9 +97,9 @@ static Key keys[] = {
 	{MODKEY, XK_k, focusstack, {.i = -1}},
 	{MODKEY, XK_Left, focusstack, {.i = -1}},
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
-	{MODKEY, XK_Up, setmfact, {.f = -0.05}},
+	{MODKEY, XK_Down, setmfact, {.f = -0.05}},
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
-	{MODKEY, XK_Down, setmfact, {.f = +0.05}},
+	{MODKEY, XK_Up, setmfact, {.f = +0.05}},
 	{MODKEY, XK_o, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
