@@ -1,0 +1,2 @@
+#define CANFOCUS(C)             (ISVISIBLE(C) && !ispanel(C))
+change all ISVISIBLE to CANFOCUS except the ones in configurerequest and showhide

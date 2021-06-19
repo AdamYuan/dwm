@@ -1,0 +1,123 @@
+From 7a9b83d0d74f9aca800c1ec0d2e698449c166e86 Mon Sep 17 00:00:00 2001
+From: Gunther Klessinger <gunther.klessinger@axiros.com>
+Date: Fri, 11 Jun 2021 21:54:29 +0200
+Subject: [PATCH] Supporting xfce4-panel in dwm
+
+We treat the panel as special window which
+- never has borders
+- never has focus
+- always has y=0
+- is never shown as active window in the indicators
+- is shown on all tags (via config rule)
+
+Which window? "xfce4-panel" - configurable in config.h
+
+=> Might work for other panels as well, if you adapt.
+---
+ config.def.h |  2 ++
+ dwm.c        | 27 ++++++++++++++++++++-------
+ 2 files changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/config.def.h b/config.def.h
+index 1c0b587..3b9e7d6 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -3,6 +3,7 @@
+ /* appearance */
+ static const unsigned int borderpx  = 1;        /* border pixel of windows */
+ static const unsigned int snap      = 32;       /* snap pixel */
++static const char panel[][20]       = { "xfce4-panel", "Xfce4-panel" }; /* name & cls of panel win */
+ static const int showbar            = 1;        /* 0 means no bar */
+ static const int topbar             = 1;        /* 0 means bottom bar */
+ static const char *fonts[]          = { "monospace:size=10" };
+@@ -29,6 +30,7 @@ static const Rule rules[] = {
+	/* class      instance    title       tags mask     isfloating   monitor */
+	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
+	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
++	{ panel[1],   NULL,       NULL,       (1 << 9) - 1, 0,           -1 },
+ };
+
+ /* layout(s) */
+diff --git a/dwm.c b/dwm.c
+index b0b3466..a3b618b 100644
+--- a/dwm.c
++++ b/dwm.c
+@@ -175,6 +175,7 @@ static long getstate(Window w);
+ static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
+ static void grabbuttons(Client *c, int focused);
+ static void grabkeys(void);
++static int ispanel(Client *c);
+ static void incnmaster(const Arg *arg);
+ static void keypress(XEvent *e);
+ static void killclient(const Arg *arg);
+@@ -710,6 +711,8 @@ drawbar(Monitor *m)
+	}
+ 
+	for (c = m->clients; c; c = c->next) {
++        // prevent showing the panel as active application:
++        if (ispanel(c)) continue;
+		occ |= c->tags;
+		if (c->isurgent)
+			urg |= c->tags;
+@@ -793,11 +796,14 @@ focus(Client *c)
+			selmon = c->mon;
+		if (c->isurgent)
+			seturgent(c, 0);
+-		detachstack(c);
+-		attachstack(c);
+-		grabbuttons(c, 1);
+-		XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
+-		setfocus(c);
++        // prevents the panel getting focus when tag switching:
++		if (!ispanel(c)) {
++            detachstack(c);
++            attachstack(c);
++            grabbuttons(c, 1);
++            XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
++            setfocus(c);
++        }
+	} else {
+		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
+		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+@@ -964,6 +970,11 @@ grabkeys(void)
+	}
+ }
+
++int
++ispanel(Client *c) {
++    return !strcmp(c->name, panel[0]);
++}
++
+ void
+ incnmaster(const Arg *arg)
+ {
+@@ -1049,7 +1060,8 @@ manage(Window w, XWindowAttributes *wa)
+	c->y = MAX(c->y, ((c->mon->by == c->mon->my) && (c->x + (c->w / 2) >= c->mon->wx)
+		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
+	c->bw = borderpx;
+-
++    // no border - even when active
++    if (ispanel(c)) c->bw = c->oldbw = 0;
+	wc.border_width = c->bw;
+	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
+	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
+@@ -1283,6 +1295,7 @@ resizeclient(Client *c, int x, int y, int w, int h)
+	c->oldw = c->w; c->w = wc.width = w;
+	c->oldh = c->h; c->h = wc.height = h;
+	wc.border_width = c->bw;
++    if (ispanel(c)) c->y = c->oldy = c->bw = wc.y = wc.border_width = 0;
+	XConfigureWindow(dpy, c->win, CWX|CWY|CWWidth|CWHeight|CWBorderWidth, &wc);
+	configure(c);
+	XSync(dpy, False);
+@@ -1991,7 +2004,7 @@ void
+ updatestatus(void)
+ {
+	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
+-		strcpy(stext, "dwm-"VERSION);
++		strcpy(stext, " "); // no shining of dwm version thru panel, when transparent
+	drawbar(selmon);
+ }
+
+--
+2.31.1
+
