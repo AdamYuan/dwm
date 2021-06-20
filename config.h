@@ -93,6 +93,7 @@ static Key keys[] = {
 	//{MODKEY, XK_w, tabmode, {-1}},
 	{MODKEY, XK_j, focusstack, {.i = +1}},
 	{MODKEY, XK_Right, focusstack, {.i = +1}},
+	{MODKEY, XK_Tab, focusstack, {.i = +1}},
 	{MODKEY, XK_k, focusstack, {.i = -1}},
 	{MODKEY, XK_Left, focusstack, {.i = -1}},
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
@@ -103,7 +104,7 @@ static Key keys[] = {
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
 
-	{MODKEY, XK_Tab, view, {0}},
+	// {MODKEY, XK_Tab, view, {0}},
 	{MODKEY, XK_x, killclient, {0}},
 	{MODKEY, XK_d, setlayout, {0}},
 	{MODKEY, XK_space, togglefloating, {0}},
@@ -130,7 +131,7 @@ static Key keys[] = {
 static Button buttons[] = {
 	/* click                event mask      button          function        argument */
 	{ClkLtSymbol, 0, Button1, setlayout, {0}},
-	{ClkLtSymbol, 0, Button3, setlayout, {.v = &layouts[2]}},
+	//{ClkLtSymbol, 0, Button3, setlayout, {.v = &layouts[1]}},
 	{ClkWinTitle, 0, Button2, zoom, {0}},
 	//{ClkStatusText, 0, Button2, spawn, {.v = termcmd}},
 	{ClkClientWin, MODKEY, Button1, movemouse, {0}},
