@@ -44,6 +44,11 @@
 #include "drw.h"
 #include "util.h"
 
+#define NDEBUG
+#ifndef NDEBUG
+FILE *logfile = NULL;
+#endif
+
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
@@ -1006,6 +1011,10 @@ focus(Client *c)
 	if (selmon->sel && selmon->sel != c)
 		unfocus(selmon->sel, 0);
 	if (c) {
+#ifndef NDEBUG
+		fprintf(logfile, "focus %s\n", c->name);
+		fflush(logfile);
+#endif
 		if (c->mon != selmon)
 			selmon = c->mon;
 		if (c->isurgent)
@@ -1286,7 +1295,8 @@ manage(Window w, XWindowAttributes *wa)
 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
 	c->bw = borderpx;
     // no border - even when active
-    if (ispanel(c)) c->bw = c->oldbw = 0;
+	int cip = ispanel(c);
+    if (cip) c->bw = c->oldbw = 0;
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
@@ -1308,7 +1318,7 @@ manage(Window w, XWindowAttributes *wa)
 	setclientstate(c, NormalState);
 	if (c->mon == selmon)
 		unfocus(selmon->sel, 0);
-	c->mon->sel = c;
+	if (!cip) c->mon->sel = c;
 	arrange(c->mon);
 	XMapWindow(dpy, c->win);
 	focus(NULL);
@@ -1710,9 +1720,9 @@ setfocus(Client *c)
 		XChangeProperty(dpy, root, netatom[NetActiveWindow],
 			XA_WINDOW, 32, PropModeReplace,
 			(unsigned char *) &(c->win), 1);
+		if (c->isfloating)
+			XRaiseWindow(dpy, c->win); // MODED: to raise floating window after focusing
 	}
-	if (c->isfloating)
-		XRaiseWindow(dpy, c->win); // MODED: to raise floating window after focusing
 	sendevent(c, wmatom[WMTakeFocus]);
 }
 
@@ -2494,6 +2504,13 @@ zoom(const Arg *arg)
 int
 main(int argc, char *argv[])
 {
+#ifndef NDEBUG
+	if (!(logfile = fopen("/tmp/dwm.log", "w"))) {
+		/* The file couldn't be opened; handle this error. */
+		fputs("warning: cannot open log\n", stderr);
+	}
+#endif
+
 	if (argc == 2 && !strcmp("-v", argv[1]))
 		die("dwm-"VERSION);
 	else if (argc != 1)
