@@ -899,6 +899,8 @@ drawbar(Monitor *m)
 			w = m->tab_widths[i];
 			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
 			drw_text(drw, x, 0, w, bh, lrpad / 2, c->name, 0);
+			if (c->isfloating)
+				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			x += w;
 			++i;
 		}
@@ -1423,7 +1425,7 @@ propertynotify(XEvent *e)
 		}
 		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
-			// if (c == c->mon->sel)
+			if (c == c->mon->sel || c->mon->ntabs > 0)
 				drawbar(c->mon);
 		}
 
