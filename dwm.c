@@ -2010,7 +2010,11 @@ togglefloating(const Arg *arg)
 		return;
 	if (selmon->sel->isfullscreen) /* no support for fullscreen windows */
 		return;
-	selmon->sel->isfloating = !selmon->sel->isfloating || selmon->sel->isfixed;
+	if (selmon->sel->isfixed) {
+		arrange(selmon); // preserve the initial logic, not sure whether it is meaningful
+		return;
+	}
+	selmon->sel->isfloating = !selmon->sel->isfloating;
 	if (selmon->sel->isfloating)
 		/* restore last known float dimensions */
 		resize(selmon->sel, selmon->sel->sfx, selmon->sel->sfy,
