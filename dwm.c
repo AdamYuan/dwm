@@ -712,6 +712,13 @@ configurerequest(XEvent *e)
 			if (ev->value_mask & CWWidth) {
 				c->oldw = c->w;
 				c->w = ev->width;
+				if (ispanel(c)) { // MODIFIED: update bar when xfce4-panel width changed
+					drawbar(c->mon);
+//#ifndef NDEBUG
+//					fprintf(logfile, "[configurerequest] xfce4-panel w = %d\n", c->w);
+//					fflush(logfile);
+//#endif
+				}
 			}
 			if (ev->value_mask & CWHeight) {
 				c->oldh = c->h;
@@ -1012,10 +1019,6 @@ focus(Client *c)
 	if (selmon->sel && selmon->sel != c)
 		unfocus(selmon->sel, 0);
 	if (c) {
-#ifndef NDEBUG
-		fprintf(logfile, "focus %s\n", c->name);
-		fflush(logfile);
-#endif
 		if (c->mon != selmon)
 			selmon = c->mon;
 		if (c->isurgent)
@@ -1488,6 +1491,7 @@ propertynotify(XEvent *e)
 				drawbar(c->mon);
 			drawtab(c->mon);
 		}
+
 		if (ev->atom == netatom[NetWMWindowType])
 			updatewindowtype(c);
 	}
@@ -2522,7 +2526,7 @@ int
 main(int argc, char *argv[])
 {
 #ifndef NDEBUG
-	if (!(logfile = fopen("/tmp/dwm.log", "w"))) {
+	if (!(logfile = fopen("/home/adamyuan/dwm.log", "w"))) {
 		/* The file couldn't be opened; handle this error. */
 		fputs("warning: cannot open log\n", stderr);
 	}
