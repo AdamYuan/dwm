@@ -1010,14 +1010,11 @@ focus(Client *c)
 			selmon = c->mon;
 		if (c->isurgent)
 			seturgent(c, 0);
-        // prevents the panel getting focus when tag switching:
-		if (!ispanel(c)) {
-            detachstack(c);
-            attachstack(c);
-            grabbuttons(c, 1);
-            XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
-            setfocus(c);
-        }
+		detachstack(c);
+		attachstack(c);
+		grabbuttons(c, 1);
+		XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
+		setfocus(c);
 	} else {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
 		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
@@ -1714,6 +1711,8 @@ setfocus(Client *c)
 			XA_WINDOW, 32, PropModeReplace,
 			(unsigned char *) &(c->win), 1);
 	}
+	if (c->isfloating)
+		XRaiseWindow(dpy, c->win); // MODED: to raise floating window after focusing
 	sendevent(c, wmatom[WMTakeFocus]);
 }
 
