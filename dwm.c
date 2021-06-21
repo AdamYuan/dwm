@@ -29,6 +29,7 @@
 #include <string.h>
 #include <limits.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <X11/cursorfont.h>
@@ -45,9 +46,10 @@
 #include "drw.h"
 #include "util.h"
 
-//#define NDEBUG
+#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
+#include <time.h>
 #endif
 
 /* macros */
@@ -828,6 +830,9 @@ cmpint(const void *p1, const void *p2) {
 void
 drawbar(Monitor *m)
 {
+#ifndef NDEBUG
+	time_t ti = clock();
+#endif
 	int x, w;
 	int boxs = drw->fonts->h / 9;
 	int boxw = drw->fonts->h / 6 + 2;
@@ -938,6 +943,12 @@ drawbar(Monitor *m)
 		}
 	}
 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
+
+#ifndef NDEBUG
+	ti = clock() - ti;
+	fprintf(logfile, "[drawbar] in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
+	fflush(logfile);
+#endif
 }
 
 void
@@ -1094,10 +1105,8 @@ getstate(Window w)
 }
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
+#define STBIR_DEFAULT_FILTER_DOWNSAMPLE STBIR_FILTER_BOX
 #include "stb_image_resize.h"
-
-#include <time.h>
-#include <stdint.h>
 
 XImage *
 geticonprop(Window win)
@@ -1113,10 +1122,10 @@ geticonprop(Window win)
 	}
 	if (n == 0) { XFree(p); return NULL; }
 
-#ifndef NDEBUG
-	fprintf(logfile, "[geticonprop] n=%lu\n", n);
-	fflush(logfile);
-#endif
+//#ifndef NDEBUG
+//	fprintf(logfile, "[geticonprop] n=%lu\n", n);
+//	fflush(logfile);
+//#endif
 	unsigned long *beg = (unsigned long *)p, *bstbeg = NULL, *i, w, h, m;
 	const unsigned long *end = beg + n / sizeof (unsigned long);
 
@@ -1140,25 +1149,7 @@ geticonprop(Window win)
 	}
 
 	w = *(bstbeg ++); h = *(bstbeg ++);
-#ifndef NDEBUG
-	fprintf(logfile, "[geticonprop] w=%ld, h=%ld\n", w, h);
-	fflush(logfile);
-#endif
-	// generate image buffer
-#ifndef NDEBUG
-	time_t ti = clock();
-#endif
-	int x, sz = w * h;
-	uint32_t *buf = malloc(sz << 2); if(!buf) { XFree(p); return NULL; }
-	for (x = 0; x < sz; ++x)
-		buf[x] = bstbeg[x] & 0xffffffffu;
-	XFree(p);
-#ifndef NDEBUG
-	ti = clock() - ti;
-	fprintf(logfile, "[updateicon] buf generated in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
-	fflush(logfile);
-#endif
-	// generate icon
+
 	int icw, ich; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
 		ich = ICONSIZE; icw = w * ICONSIZE / h;
@@ -1170,10 +1161,37 @@ geticonprop(Window win)
 		if (ich < 1) ich = 1;
 		else if (ich > ICONSIZE) ich = ICONSIZE;
 	}
-	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { free(buf); return NULL; }
-	// scale icon data to target size
-	stbir_resize_uint8((unsigned char *)buf, w, h, 0, icbuf, icw, ich, 0, 4);
-	free(buf);
+//#ifndef NDEBUG
+//	fprintf(logfile, "[geticonprop] w=%ld, h=%ld, icw=%d, ich=%d\n", w, h, icw, ich);
+//	fflush(logfile);
+//#endif
+
+#if ULONG_MAX == UINT64_MAX // sizeof(long) == 8
+
+	// generate temporary image buffer
+	int x, sz = w * h;
+	uint32_t *buf = malloc(sz << 2); if(!buf) { XFree(p); return NULL; }
+	for (x = 0; x < sz; ++x) buf[x] = bstbeg[x] & 0xffffffffu;
+	XFree(p);
+
+	// generate icon
+	unsigned char *icbuf;
+	if (w == icw && h == ich) icbuf = (unsigned char *) buf;
+	else {
+		icbuf = malloc(icw * ich << 2); if(!icbuf) { free(buf); return NULL; }
+		stbir_resize_uint8((unsigned char *)buf, w, h, 0, icbuf, icw, ich, 0, 4);
+		free(buf);
+	}
+
+#elif ULONG_MAX == UINT32_MAX
+
+	// generate icon
+	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { XFree(p); return NULL; }
+	if (w == icw && h == ich) memcpy(icbuf, bstbeg, icw * ich << 2);
+	else stbir_resize_uint8((unsigned char *)bstbeg, w, h, 0, icbuf, icw, ich, 0, 4); 
+	XFree(p);
+
+#endif
 
 	return XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
 }
@@ -1504,6 +1522,7 @@ propertynotify(XEvent *e)
 	if (ev->state == PropertyDelete)
 		return; /* ignore */
 	else if ((c = wintoclient(ev->window))) {
+		int ub = 0;
 		switch(ev->atom) {
 		default: break;
 		case XA_WM_TRANSIENT_FOR:
@@ -1516,10 +1535,10 @@ propertynotify(XEvent *e)
 			break;
 		case XA_WM_HINTS:
 			updatewmhints(c);
-			drawbars();
+			ub = 1;
 			break;
 		}
-		int ub = 0, rdb = c == c->mon->sel || c->mon->ntabs > 0; // redraw bar
+		int rdb = c == c->mon->sel || c->mon->ntabs > 0; // redraw bar
 		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
 			if (rdb) ub = 1;
@@ -2375,10 +2394,18 @@ updatesizehints(Client *c)
 void
 updatetitle(Client *c)
 {
+#ifndef NDEBUG
+	time_t ti = clock();
+#endif
 	if (!gettextprop(c->win, netatom[NetWMName], c->name, sizeof c->name))
 		gettextprop(c->win, XA_WM_NAME, c->name, sizeof c->name);
 	if (c->name[0] == '\0') /* hack to mark broken clients */
 		strcpy(c->name, broken);
+#ifndef NDEBUG
+	ti = clock() - ti;
+	fprintf(logfile, "[updatetitle] %s in %ld ns\n", c->name, ti * 1000000 / CLOCKS_PER_SEC);
+	fflush(logfile);
+#endif
 }
 
 void freeicon(Client *c) {
@@ -2593,8 +2620,8 @@ main(int argc, char *argv[])
 
 
 // SHOULD BE IN drw.c
-static char
-blend(int a, int x, int y) { return ((255-a)*x + a*y) / 255; }
+static char 
+blend(unsigned char a, unsigned char x, unsigned char y) { return ((255-a)*x + a*y) / 255; }
 
 void
 drw_img(Drw *drw, int x, int y, unsigned int w, unsigned int h, XImage *img) 

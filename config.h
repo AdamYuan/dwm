@@ -9,7 +9,7 @@ static const char *const panel[] = { "xfce4-panel", "Xfce4-panel" }; /* name & c
 static const int showbar = 1;           /* 0 means no bar */
 static const int topbar = 1;            /* 0 means bottom bar */
 
-#define ICONSIZE 22
+#define ICONSIZE 24
 static const int iconspacing = 5;
 
 static const int focusonwheel = 0;
