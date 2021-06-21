@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -44,7 +45,7 @@
 #include "drw.h"
 #include "util.h"
 
-#define NDEBUG
+//#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #endif
@@ -69,7 +70,7 @@ FILE *logfile = NULL;
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum { SchemeNorm, SchemeSel, SchemeTitle }; /* color schemes */
-enum { NetSupported, NetWMName, NetWMState, NetWMCheck,
+enum { NetSupported, NetWMName, NetWMIcon, NetWMState, NetWMCheck,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
        NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
@@ -93,6 +94,9 @@ typedef struct {
 
 typedef struct Monitor Monitor;
 typedef struct Client Client;
+typedef struct {
+	XImage *img;
+} Icon;
 struct Client {
 	char name[256];
 	float mina, maxa;
@@ -101,6 +105,7 @@ struct Client {
 	int oldx, oldy, oldw, oldh;
 	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
 	int bw, oldbw;
+	Icon icon;
 	unsigned int tags;
 	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
 	Client *next;
@@ -188,6 +193,7 @@ static void focusstack(const Arg *arg);
 static void focuswin(const Arg* arg);
 static int getrootptr(int *x, int *y);
 static long getstate(Window w);
+static int geticonprop(Window w, Icon *ic);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
@@ -206,6 +212,8 @@ static void pop(Client *);
 static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
+static void freeicon(Client *c); // FREE ICON
+static int hasicon(Client *c); // HAS ICON
 static void resize(Client *c, int x, int y, int w, int h, int bw, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h, int bw);
 static void resizemouse(const Arg *arg);
@@ -242,6 +250,7 @@ static int updategeom(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
 static void updatetitle(Client *c);
+static void updateicon(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
 static void view(const Arg *arg);
@@ -701,10 +710,6 @@ configurerequest(XEvent *e)
 				c->w = ev->width;
 				if (ispanel(c)) { // MODIFIED: update bar when xfce4-panel width changed
 					drawbar(c->mon);
-//#ifndef NDEBUG
-//					fprintf(logfile, "[configurerequest] xfce4-panel w = %d\n", c->w);
-//					fflush(logfile);
-//#endif
 				}
 			}
 			if (ev->value_mask & CWHeight) {
@@ -872,7 +877,7 @@ drawbar(Monitor *m)
 		m->ntabs = 0;
 		for(c = m->clients; c; c = c->next){
 			if(!CANFOCUS(c)) continue;
-			m->tab_widths[m->ntabs] = TEXTW(c->name);
+			m->tab_widths[m->ntabs] = TEXTW(c->name) + (hasicon(c) ? c->icon.img->width + iconspacing : 0);
 			tot_width += m->tab_widths[m->ntabs];
 			++m->ntabs;
 			if(m->ntabs >= MAXTABS) break;
@@ -898,7 +903,12 @@ drawbar(Monitor *m)
 			if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
 			w = m->tab_widths[i];
 			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2, c->name, 0);
+			int hic = hasicon(c), icw, ich;
+			if (hic) icw = c->icon.img->width, ich = c->icon.img->height;
+			drw_text(drw, x, 0, w, bh, lrpad / 2 + (hic ? icw + iconspacing : 0), c->name, 0);
+			if (hic) {
+				drw_img(drw, x + lrpad / 2, (bh - ich + 1) / 2, icw, ich, c->icon.img);
+			}
 			if (c->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			x += w;
@@ -914,15 +924,20 @@ drawbar(Monitor *m)
 		m->ntabs = 0;
 
 		if ((w = m->ww - x - xpw) > bh) {
-			if (m->sel) {
+			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
-				drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0); //DEBUG
+				int hic = hasicon(c), icw, ich;
+				if (hic) icw = c->icon.img->width, ich = c->icon.img->height;
+				drw_text(drw, x, 0, w, bh, lrpad / 2 + (hic ? icw + iconspacing : 0), c->name, 0);
+				if (hic) {
+					drw_img(drw, x + lrpad / 2, (bh - ich + 1) / 2, icw, ich, c->icon.img);
+				}
 				if (xpw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
 					drw_rect(drw, x + w, 0, xpw, bh, 1, 1);
 				}
-				if (m->sel->isfloating)
-					drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
+				if (c->isfloating)
+					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			} else {
 				drw_setscheme(drw, scheme[SchemeNorm]);
 				drw_rect(drw, x, 0, w + xpw, bh, 1, 1);
@@ -1085,6 +1100,95 @@ getstate(Window w)
 	return result;
 }
 
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
+
+/*static void parseicon(unsigned char *p, int n, Icon *ic)
+{
+	for (y = 0; y < ic->h; ++y) {
+		for (x = 0; x < ic->w; ++x) {
+			unsigned char a, r, g, b;
+			unsigned long pixel = XGetPixel(ic->img, x, y);
+
+			r = (pixel & 0x00ff0000) >> 16;
+			g = (pixel & 0x0000ff00) >> 8;
+			b = (pixel & 0x000000ff);
+
+			{
+				fprintf (logfile, "\033[38;2;%d;%d;%dm\342\226\210\342\226\210", r, g, b );
+			}
+		}
+		fputs("\n", logfile);
+	}
+	fprintf(logfile, "\033[0m\n");
+	fflush(logfile);
+}*/
+
+int
+geticonprop(Window win, Icon *ic)
+{
+	int format;
+	unsigned char *p = NULL;
+	unsigned long n, extra;
+	Atom real;
+
+	if (XGetWindowProperty(dpy, win, netatom[NetWMIcon], 0L, LONG_MAX, False, AnyPropertyType, 
+						   &real, &format, &n, &extra, (unsigned char **)&p) != Success) { 
+		ic->img = NULL; return 0; 
+	}
+	if (n == 0) { ic->img = NULL; XFree(p); return 0; }
+
+#ifndef NDEBUG
+	fprintf(logfile, "[geticonprop] n=%lu\n", n);
+	fflush(logfile);
+#endif
+	unsigned long *beg = (unsigned long *)p, *bstbeg = NULL, *i, w, h;
+	const unsigned long *end = beg + n / sizeof (unsigned long);
+
+	{ // select best icon
+		int bstd = INT_MAX, d; // best h, best delta
+		for (i = beg; i < end; ) { // prefer the smallest icon that is bigger than ICONSIZE
+			w = *i++; h = *i++;
+			if (h >= ICONSIZE && (d = h - ICONSIZE) < bstd) { bstd = d; bstbeg = i - 2; }
+			i += (w * h);
+		}
+		if (!bstbeg) { // fallback to the largest icon smaller than ICONSIZE
+			for (i = beg; i < end; ) {
+				w = *i++; h = *i++;
+				if ((d = ICONSIZE - h) < bstd) { bstd = d; bstbeg = i - 2; }
+				i += (w * h);
+			}
+		}
+		if (!bstbeg) { ic->img = NULL; XFree(p); return 0; }
+	}
+
+	w = *(bstbeg ++); h = *(bstbeg ++);
+	// generate image buffer
+	unsigned char *buf = malloc(w * h * 4); if(!buf) { ic->img = NULL; XFree(p); return 0; }
+
+	int x, sz = w * h;
+	for (x = 0; x < sz; ++x) {
+		unsigned long pix = bstbeg[x];
+		buf[(x<<2)  ] = (pix & 0x000000ff);     buf[(x<<2)+1] = (pix & 0x0000ff00)>>8;
+		buf[(x<<2)+2] = (pix & 0x00ff0000)>>16; buf[(x<<2)+3] = (pix & 0xff000000)>>24;
+	}
+
+	XFree(p);
+
+	// generate icon
+	int ich = ICONSIZE, icw = w * ICONSIZE / h;
+	if (icw == 0) icw = 1;
+	unsigned char *icbuf = malloc(icw * ich * 4); if(!icbuf) { ic->img = NULL; free(buf); return 0; }
+	// scale icon to target size
+	stbir_resize_uint8((unsigned char *)buf, w, h, 0, (unsigned char *)icbuf, icw, ich, 0, 4);
+	free(buf);
+
+	ic->img = XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
+
+	//fprintf (logfile, "Scaled Image: %p\tIcon (%d x %d):\n", (void *)ic->img, icw, ich);
+	return 1;
+}
+
 int
 gettextprop(Window w, Atom atom, char *text, unsigned int size)
 {
@@ -1221,6 +1325,9 @@ manage(Window w, XWindowAttributes *wa)
 	c->h = c->oldh = wa->height;
 	c->oldbw = wa->border_width;
 
+	/* icon */
+	c->icon.img = NULL;
+	updateicon(c);
 	updatetitle(c);
 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
 		c->mon = t->mon;
@@ -1423,11 +1530,21 @@ propertynotify(XEvent *e)
 			drawbars();
 			break;
 		}
+		int ub = 0, rdb = c == c->mon->sel || c->mon->ntabs > 0; // redraw bar
 		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
-			if (c == c->mon->sel || c->mon->ntabs > 0)
-				drawbar(c->mon);
+			if (rdb) ub = 1;
 		}
+		if (ev->atom == netatom[NetWMIcon]) {
+			updateicon(c);
+			if (rdb) ub = 1;
+#ifndef NDEBUG
+			fprintf(logfile, "[propertynotify] %s icon changed\n", c->name);
+			fflush(logfile);
+#endif
+		}
+
+		if (ub) drawbar(c->mon);
 
 		if (ev->atom == netatom[NetWMWindowType])
 			updatewindowtype(c);
@@ -1756,6 +1873,7 @@ setup(void)
 	netatom[NetActiveWindow] = XInternAtom(dpy, "_NET_ACTIVE_WINDOW", False);
 	netatom[NetSupported] = XInternAtom(dpy, "_NET_SUPPORTED", False);
 	netatom[NetWMName] = XInternAtom(dpy, "_NET_WM_NAME", False);
+	netatom[NetWMIcon] = XInternAtom(dpy, "_NET_WM_ICON", False);
 	netatom[NetWMState] = XInternAtom(dpy, "_NET_WM_STATE", False);
 	netatom[NetWMCheck] = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", False);
 	netatom[NetWMFullscreen] = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
@@ -2037,6 +2155,7 @@ unmanage(Client *c, int destroyed)
 
 	detach(c);
 	detachstack(c);
+	freeicon(c);
 	if (!destroyed) {
 		wc.border_width = c->oldbw;
 		XGrabServer(dpy); /* avoid race conditions */
@@ -2273,6 +2392,31 @@ updatetitle(Client *c)
 		strcpy(c->name, broken);
 }
 
+void freeicon(Client *c) {
+	if (c->icon.img) {
+		XDestroyImage(c->icon.img);
+		c->icon.img = NULL;
+	}
+#ifndef NDEBUG
+	fprintf(logfile, "[freeicon] %s\n", c->name);
+	fflush(logfile);
+#endif
+}
+int hasicon(Client *c)  {
+	return c->icon.img != NULL;
+}
+
+void
+updateicon(Client *c)
+{
+	freeicon(c);
+	geticonprop(c->win, &c->icon);
+#ifndef NDEBUG
+	fprintf(logfile, "[updateicon] %s to %p\n", c->name, c->icon.img);
+	fflush(logfile);
+#endif
+}
+
 void
 updatewindowtype(Client *c)
 {
@@ -2432,6 +2576,9 @@ main(int argc, char *argv[])
 	}
 #endif
 
+	fprintf(logfile, "%lu\n", sizeof(Client));
+	fflush(logfile);
+
 	if (argc == 2 && !strcmp("-v", argv[1]))
 		die("dwm-"VERSION);
 	else if (argc != 1)
@@ -2453,3 +2600,29 @@ main(int argc, char *argv[])
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
 }
+
+static char
+blend(int a, int x, int y) { return ((255-a)*x + a*y) / 255; }
+
+void
+drw_img(Drw *drw, int x, int y, unsigned int w, unsigned int h, XImage *img) 
+{
+	static unsigned char tmp[ICONSIZE * ICONSIZE * 4];
+	if (!drw || !drw->scheme)
+		return;
+	// alpha blend
+	int icsz = img->width * img->height, bt = drw->scheme[ColBg].pixel, i;
+	memcpy(tmp, img->data, icsz * 4);
+
+	unsigned char r = (bt & 0x000000ff), g = (bt & 0x0000ff00)>>8, b = (bt & 0x00ff0000)>>16;
+	for (i = 0; i < icsz; ++i) {
+		unsigned char a = tmp[(i<<2)+3];
+		img->data[(i<<2)  ] = blend(a, r, tmp[(i<<2)  ]);
+		img->data[(i<<2)+1] = blend(a, g, tmp[(i<<2)+1]);
+		img->data[(i<<2)+2] = blend(a, b, tmp[(i<<2)+2]);
+	}
+	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, w, h);
+
+	memcpy(img->data, tmp, icsz * 4);
+}
+

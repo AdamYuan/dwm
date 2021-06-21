@@ -9,6 +9,9 @@ static const char *const panel[] = { "xfce4-panel", "Xfce4-panel" }; /* name & c
 static const int showbar = 1;           /* 0 means no bar */
 static const int topbar = 1;            /* 0 means bottom bar */
 
+#define ICONSIZE 22
+static const int iconspacing = 5;
+
 static const int focusonwheel = 0;
 
 static const char *fonts[] = {"Noto Sans:pixelsize=16:style=Bold:antialias=true"};
@@ -113,6 +116,7 @@ static Key keys[] = {
 
 	{MODKEY, XK_e, spawn, {.v = rofiruncmd}},
 	{MODKEY | ShiftMask, XK_q, spawn, {.v = rofiquitcmd}},
+	//{MODKEY | ShiftMask, XK_q, quit, {0}},
 	{MODKEY, XK_Return, spawn, {.v = (const char *[]){TERM, NULL}}},
 	{MODKEY, XK_t, spawn, {.v = (const char *[]){"thunar", NULL}}},
 	{MODKEY, XK_w, spawn, {.v = (const char *[]){"firefox", NULL}}},
