@@ -94,9 +94,6 @@ typedef struct {
 
 typedef struct Monitor Monitor;
 typedef struct Client Client;
-typedef struct {
-	XImage *img;
-} Icon;
 struct Client {
 	char name[256];
 	float mina, maxa;
@@ -105,7 +102,7 @@ struct Client {
 	int oldx, oldy, oldw, oldh;
 	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
 	int bw, oldbw;
-	Icon icon;
+	XImage *icon;
 	unsigned int tags;
 	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
 	Client *next;
@@ -193,7 +190,7 @@ static void focusstack(const Arg *arg);
 static void focuswin(const Arg* arg);
 static int getrootptr(int *x, int *y);
 static long getstate(Window w);
-static int geticonprop(Window w, Icon *ic);
+static XImage *geticonprop(Window w);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
@@ -877,7 +874,7 @@ drawbar(Monitor *m)
 		m->ntabs = 0;
 		for(c = m->clients; c; c = c->next){
 			if(!CANFOCUS(c)) continue;
-			m->tab_widths[m->ntabs] = TEXTW(c->name) + (hasicon(c) ? c->icon.img->width + iconspacing : 0);
+			m->tab_widths[m->ntabs] = TEXTW(c->name) + (hasicon(c) ? c->icon->width + iconspacing : 0);
 			tot_width += m->tab_widths[m->ntabs];
 			++m->ntabs;
 			if(m->ntabs >= MAXTABS) break;
@@ -904,11 +901,9 @@ drawbar(Monitor *m)
 			w = m->tab_widths[i];
 			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
 			int hic = hasicon(c), icw, ich;
-			if (hic) icw = c->icon.img->width, ich = c->icon.img->height;
+			if (hic) icw = c->icon->width, ich = c->icon->height;
 			drw_text(drw, x, 0, w, bh, lrpad / 2 + (hic ? icw + iconspacing : 0), c->name, 0);
-			if (hic) {
-				drw_img(drw, x + lrpad / 2, (bh - ich + 1) / 2, icw, ich, c->icon.img);
-			}
+			if (hic) drw_img(drw, x + lrpad / 2, (bh - ich) / 2, icw, ich, c->icon);
 			if (c->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			x += w;
@@ -927,11 +922,9 @@ drawbar(Monitor *m)
 			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
 				int hic = hasicon(c), icw, ich;
-				if (hic) icw = c->icon.img->width, ich = c->icon.img->height;
+				if (hic) icw = c->icon->width, ich = c->icon->height;
 				drw_text(drw, x, 0, w, bh, lrpad / 2 + (hic ? icw + iconspacing : 0), c->name, 0);
-				if (hic) {
-					drw_img(drw, x + lrpad / 2, (bh - ich + 1) / 2, icw, ich, c->icon.img);
-				}
+				if (hic) drw_img(drw, x + lrpad / 2, (bh - ich) / 2, icw, ich, c->icon);
 				if (xpw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
 					drw_rect(drw, x + w, 0, xpw, bh, 1, 1);
@@ -1103,30 +1096,15 @@ getstate(Window w)
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb_image_resize.h"
 
-/*static void parseicon(unsigned char *p, int n, Icon *ic)
+#include <time.h>
+
+XImage *
+geticonprop(Window win)
 {
-	for (y = 0; y < ic->h; ++y) {
-		for (x = 0; x < ic->w; ++x) {
-			unsigned char a, r, g, b;
-			unsigned long pixel = XGetPixel(ic->img, x, y);
+#ifndef NDEBUG
+	time_t ti = clock();
+#endif
 
-			r = (pixel & 0x00ff0000) >> 16;
-			g = (pixel & 0x0000ff00) >> 8;
-			b = (pixel & 0x000000ff);
-
-			{
-				fprintf (logfile, "\033[38;2;%d;%d;%dm\342\226\210\342\226\210", r, g, b );
-			}
-		}
-		fputs("\n", logfile);
-	}
-	fprintf(logfile, "\033[0m\n");
-	fflush(logfile);
-}*/
-
-int
-geticonprop(Window win, Icon *ic)
-{
 	int format;
 	unsigned char *p = NULL;
 	unsigned long n, extra;
@@ -1134,59 +1112,77 @@ geticonprop(Window win, Icon *ic)
 
 	if (XGetWindowProperty(dpy, win, netatom[NetWMIcon], 0L, LONG_MAX, False, AnyPropertyType, 
 						   &real, &format, &n, &extra, (unsigned char **)&p) != Success) { 
-		ic->img = NULL; return 0; 
+		return NULL; 
 	}
-	if (n == 0) { ic->img = NULL; XFree(p); return 0; }
+	if (n == 0) { XFree(p); return NULL; }
 
 #ifndef NDEBUG
 	fprintf(logfile, "[geticonprop] n=%lu\n", n);
 	fflush(logfile);
 #endif
-	unsigned long *beg = (unsigned long *)p, *bstbeg = NULL, *i, w, h;
+	unsigned long *beg = (unsigned long *)p, *bstbeg = NULL, *i, w, h, m;
 	const unsigned long *end = beg + n / sizeof (unsigned long);
 
 	{ // select best icon
 		int bstd = INT_MAX, d; // best h, best delta
-		for (i = beg; i < end; ) { // prefer the smallest icon that is bigger than ICONSIZE
+		for (i = beg; i < end; ) { // prefer the smallest icon that is larger than ICONSIZE
 			w = *i++; h = *i++;
-			if (h >= ICONSIZE && (d = h - ICONSIZE) < bstd) { bstd = d; bstbeg = i - 2; }
+			m = w > h ? w : h;
+			if (m >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstbeg = i - 2; }
 			i += (w * h);
 		}
 		if (!bstbeg) { // fallback to the largest icon smaller than ICONSIZE
 			for (i = beg; i < end; ) {
 				w = *i++; h = *i++;
-				if ((d = ICONSIZE - h) < bstd) { bstd = d; bstbeg = i - 2; }
+				m = w > h ? w : h;
+				if ((d = ICONSIZE - m) < bstd) { bstd = d; bstbeg = i - 2; }
 				i += (w * h);
 			}
+
+#ifndef NDEBUG
+			fprintf(logfile, "[geticonprop] fallback\n");
+			fflush(logfile);
+#endif
 		}
-		if (!bstbeg) { ic->img = NULL; XFree(p); return 0; }
+		if (!bstbeg) { XFree(p); return NULL; }
 	}
 
 	w = *(bstbeg ++); h = *(bstbeg ++);
 	// generate image buffer
-	unsigned char *buf = malloc(w * h * 4); if(!buf) { ic->img = NULL; XFree(p); return 0; }
+	unsigned char *buf = malloc(w * h << 2); if(!buf) { XFree(p); return NULL; }
 
 	int x, sz = w * h;
 	for (x = 0; x < sz; ++x) {
 		unsigned long pix = bstbeg[x];
-		buf[(x<<2)  ] = (pix & 0x000000ff);     buf[(x<<2)+1] = (pix & 0x0000ff00)>>8;
-		buf[(x<<2)+2] = (pix & 0x00ff0000)>>16; buf[(x<<2)+3] = (pix & 0xff000000)>>24;
+		buf[(x<<2)  ] = (pix & 0x000000ff);     buf[(x<<2)|1] = (pix & 0x0000ff00)>>8;
+		buf[(x<<2)|2] = (pix & 0x00ff0000)>>16; buf[(x<<2)|3] = (pix & 0xff000000)>>24;
 	}
 
 	XFree(p);
-
 	// generate icon
-	int ich = ICONSIZE, icw = w * ICONSIZE / h;
-	if (icw == 0) icw = 1;
-	unsigned char *icbuf = malloc(icw * ich * 4); if(!icbuf) { ic->img = NULL; free(buf); return 0; }
-	// scale icon to target size
-	stbir_resize_uint8((unsigned char *)buf, w, h, 0, (unsigned char *)icbuf, icw, ich, 0, 4);
+	int icw, ich; // scale icon's largest size axis to ICONSIZE
+	if (w <= h) {
+		ich = ICONSIZE; icw = w * ICONSIZE / h;
+		if (icw < 1) icw = 1;
+		else if (icw > ICONSIZE) icw = ICONSIZE;
+	}
+	else {
+		icw = ICONSIZE; ich = h * ICONSIZE / w;
+		if (ich < 1) ich = 1;
+		else if (ich > ICONSIZE) ich = ICONSIZE;
+	}
+	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { free(buf); return NULL; }
+	// scale icon data to target size
+	stbir_resize_uint8(buf, w, h, 0, icbuf, icw, ich, 0, 4);
 	free(buf);
 
-	ic->img = XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
+#ifndef NDEBUG
+	ti = clock() - ti;
+	fprintf(logfile, "[geticonprop] used %ld ms\n", ti * 1000 / CLOCKS_PER_SEC);
+	fflush(logfile);
+#endif
 
-	//fprintf (logfile, "Scaled Image: %p\tIcon (%d x %d):\n", (void *)ic->img, icw, ich);
-	return 1;
+	return XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
 }
 
 int
@@ -1326,7 +1322,7 @@ manage(Window w, XWindowAttributes *wa)
 	c->oldbw = wa->border_width;
 
 	/* icon */
-	c->icon.img = NULL;
+	c->icon = NULL;
 	updateicon(c);
 	updatetitle(c);
 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
@@ -2393,9 +2389,9 @@ updatetitle(Client *c)
 }
 
 void freeicon(Client *c) {
-	if (c->icon.img) {
-		XDestroyImage(c->icon.img);
-		c->icon.img = NULL;
+	if (c->icon) {
+		XDestroyImage(c->icon);
+		c->icon = NULL;
 	}
 #ifndef NDEBUG
 	fprintf(logfile, "[freeicon] %s\n", c->name);
@@ -2403,16 +2399,16 @@ void freeicon(Client *c) {
 #endif
 }
 int hasicon(Client *c)  {
-	return c->icon.img != NULL;
+	return c->icon != NULL;
 }
 
 void
 updateicon(Client *c)
 {
 	freeicon(c);
-	geticonprop(c->win, &c->icon);
+	c->icon = geticonprop(c->win);
 #ifndef NDEBUG
-	fprintf(logfile, "[updateicon] %s to %p\n", c->name, c->icon.img);
+	fprintf(logfile, "[updateicon] %s to %p\n", c->name, c->icon);
 	fflush(logfile);
 #endif
 }
@@ -2576,9 +2572,6 @@ main(int argc, char *argv[])
 	}
 #endif
 
-	fprintf(logfile, "%lu\n", sizeof(Client));
-	fflush(logfile);
-
 	if (argc == 2 && !strcmp("-v", argv[1]))
 		die("dwm-"VERSION);
 	else if (argc != 1)
@@ -2601,28 +2594,29 @@ main(int argc, char *argv[])
 	return EXIT_SUCCESS;
 }
 
+
+// SHOULD BE IN drw.c
 static char
 blend(int a, int x, int y) { return ((255-a)*x + a*y) / 255; }
 
 void
 drw_img(Drw *drw, int x, int y, unsigned int w, unsigned int h, XImage *img) 
 {
-	static unsigned char tmp[ICONSIZE * ICONSIZE * 4];
+	static unsigned char tmp[ICONSIZE * ICONSIZE << 2];
+	unsigned char *data = (unsigned char *)img->data;
 	if (!drw || !drw->scheme)
 		return;
 	// alpha blend
 	int icsz = img->width * img->height, bt = drw->scheme[ColBg].pixel, i;
-	memcpy(tmp, img->data, icsz * 4);
-
 	unsigned char r = (bt & 0x000000ff), g = (bt & 0x0000ff00)>>8, b = (bt & 0x00ff0000)>>16;
+	memcpy(tmp, data, icsz << 2);
 	for (i = 0; i < icsz; ++i) {
-		unsigned char a = tmp[(i<<2)+3];
-		img->data[(i<<2)  ] = blend(a, r, tmp[(i<<2)  ]);
-		img->data[(i<<2)+1] = blend(a, g, tmp[(i<<2)+1]);
-		img->data[(i<<2)+2] = blend(a, b, tmp[(i<<2)+2]);
+		unsigned char a = data[(i<<2)|3];
+		data[(i<<2)  ] = blend(a, r, data[(i<<2)  ]);
+		data[(i<<2)|1] = blend(a, g, data[(i<<2)|1]);
+		data[(i<<2)|2] = blend(a, b, data[(i<<2)|2]);
 	}
 	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, w, h);
 
-	memcpy(img->data, tmp, icsz * 4);
+	memcpy(data, tmp, icsz << 2);
 }
-
