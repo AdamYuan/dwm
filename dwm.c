@@ -1097,14 +1097,11 @@ getstate(Window w)
 #include "stb_image_resize.h"
 
 #include <time.h>
+#include <stdint.h>
 
 XImage *
 geticonprop(Window win)
 {
-#ifndef NDEBUG
-	time_t ti = clock();
-#endif
-
 	int format;
 	unsigned char *p = NULL;
 	unsigned long n, extra;
@@ -1138,27 +1135,29 @@ geticonprop(Window win)
 				if ((d = ICONSIZE - m) < bstd) { bstd = d; bstbeg = i - 2; }
 				i += (w * h);
 			}
-
-#ifndef NDEBUG
-			fprintf(logfile, "[geticonprop] fallback\n");
-			fflush(logfile);
-#endif
 		}
 		if (!bstbeg) { XFree(p); return NULL; }
 	}
 
 	w = *(bstbeg ++); h = *(bstbeg ++);
+#ifndef NDEBUG
+	fprintf(logfile, "[geticonprop] w=%ld, h=%ld\n", w, h);
+	fflush(logfile);
+#endif
 	// generate image buffer
-	unsigned char *buf = malloc(w * h << 2); if(!buf) { XFree(p); return NULL; }
-
+#ifndef NDEBUG
+	time_t ti = clock();
+#endif
 	int x, sz = w * h;
-	for (x = 0; x < sz; ++x) {
-		unsigned long pix = bstbeg[x];
-		buf[(x<<2)  ] = (pix & 0x000000ff);     buf[(x<<2)|1] = (pix & 0x0000ff00)>>8;
-		buf[(x<<2)|2] = (pix & 0x00ff0000)>>16; buf[(x<<2)|3] = (pix & 0xff000000)>>24;
-	}
-
+	uint32_t *buf = malloc(sz << 2); if(!buf) { XFree(p); return NULL; }
+	for (x = 0; x < sz; ++x)
+		buf[x] = bstbeg[x] & 0xffffffffu;
 	XFree(p);
+#ifndef NDEBUG
+	ti = clock() - ti;
+	fprintf(logfile, "[updateicon] buf generated in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
+	fflush(logfile);
+#endif
 	// generate icon
 	int icw, ich; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
@@ -1173,14 +1172,8 @@ geticonprop(Window win)
 	}
 	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { free(buf); return NULL; }
 	// scale icon data to target size
-	stbir_resize_uint8(buf, w, h, 0, icbuf, icw, ich, 0, 4);
+	stbir_resize_uint8((unsigned char *)buf, w, h, 0, icbuf, icw, ich, 0, 4);
 	free(buf);
-
-#ifndef NDEBUG
-	ti = clock() - ti;
-	fprintf(logfile, "[geticonprop] used %ld ms\n", ti * 1000 / CLOCKS_PER_SEC);
-	fflush(logfile);
-#endif
 
 	return XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
 }
@@ -2405,10 +2398,14 @@ int hasicon(Client *c)  {
 void
 updateicon(Client *c)
 {
+#ifndef NDEBUG
+	time_t ti = clock();
+#endif
 	freeicon(c);
 	c->icon = geticonprop(c->win);
 #ifndef NDEBUG
-	fprintf(logfile, "[updateicon] %s to %p\n", c->name, c->icon);
+	ti = clock() - ti;
+	fprintf(logfile, "[updateicon] %s to %p in %ld ns\n", c->name, (void *)c->icon, ti * 1000000 / CLOCKS_PER_SEC);
 	fflush(logfile);
 #endif
 }
