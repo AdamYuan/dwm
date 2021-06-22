@@ -1108,8 +1108,7 @@ XImage *
 geticonprop(Window win)
 {
 	int format;
-	unsigned char *p = NULL;
-	unsigned long n, extra;
+	unsigned long n, extra, *p = NULL;
 	Atom real;
 
 #ifndef NDEBUG
@@ -1130,29 +1129,30 @@ geticonprop(Window win)
 	fprintf(logfile, "[geticonprop] n=%lu\n", n);
 	fflush(logfile);
 #endif
-	unsigned long *beg = (unsigned long *)p, *bstbeg = NULL, *i, w, h, m;
-	const unsigned long *end = beg + n / sizeof (unsigned long);
+	unsigned long *bstp = NULL, w, h;
 
 	{ // select best icon
-		int bstd = INT_MAX, d; // best h, best delta
-		for (i = beg; i < end; ) { // prefer the smallest icon that is larger than ICONSIZE
+		const unsigned long *end = p + n;
+		unsigned long *i;
+		int bstd = INT_MAX, d, m; // best h, best delta
+		for (i = p; i < end; ) { // prefer the smallest icon that is larger than ICONSIZE
 			w = *i++; h = *i++;
 			m = w > h ? w : h;
-			if (m >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstbeg = i - 2; }
+			if (m >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i; }
 			i += (w * h);
 		}
-		if (!bstbeg) { // fallback to the largest icon smaller than ICONSIZE
-			for (i = beg; i < end; ) {
+		if (!bstp) { // fallback to the largest icon smaller than ICONSIZE
+			for (i = p; i < end; ) {
 				w = *i++; h = *i++;
 				m = w > h ? w : h;
-				if ((d = ICONSIZE - m) < bstd) { bstd = d; bstbeg = i - 2; }
+				if ((d = ICONSIZE - m) < bstd) { bstd = d; bstp = i; }
 				i += (w * h);
 			}
 		}
-		if (!bstbeg) { XFree(p); return NULL; }
+		if (!bstp) { XFree(p); return NULL; }
 	}
 
-	w = *(bstbeg ++); h = *(bstbeg ++);
+	w = *(bstp - 2); h = *(bstp - 1);
 
 	int icw, ich; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
@@ -1173,9 +1173,9 @@ geticonprop(Window win)
 #if ULONG_MAX == UINT64_MAX // sizeof(long) == 8
 
 	// generate temporary image buffer
-	int x, sz = w * h;
+	int i, sz = w * h;
 	uint32_t *buf = malloc(sz << 2); if(!buf) { XFree(p); return NULL; }
-	for (x = 0; x < sz; ++x) buf[x] = bstbeg[x] & 0xffffffffu;
+	for (i = 0; i < sz; ++i) buf[i] = bstp[i] & 0xffffffffu;
 	XFree(p);
 
 	// generate icon
@@ -1191,8 +1191,8 @@ geticonprop(Window win)
 
 	// generate icon
 	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { XFree(p); return NULL; }
-	if (w == icw && h == ich) memcpy(icbuf, bstbeg, icw * ich << 2);
-	else stbir_resize_uint8((unsigned char *)bstbeg, w, h, 0, icbuf, icw, ich, 0, 4); 
+	if (w == icw && h == ich) memcpy(icbuf, bstp, icw * ich << 2);
+	else stbir_resize_uint8((unsigned char *)bstp, w, h, 0, icbuf, icw, ich, 0, 4); 
 	XFree(p);
 
 #endif

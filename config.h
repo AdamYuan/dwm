@@ -98,6 +98,7 @@ static Key keys[] = {
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
 	{MODKEY, XK_Up, setmfact, {.f = +0.05}},
 	{MODKEY, XK_o, zoom, {0}},
+	{MODKEY, XK_s, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
 
@@ -119,8 +120,8 @@ static Key keys[] = {
 	//{MODKEY | ShiftMask, XK_q, quit, {0}},
 	{MODKEY, XK_Return, spawn, {.v = (const char *[]){TERM, NULL}}},
 	{MODKEY, XK_t, spawn, {.v = (const char *[]){"thunar", NULL}}},
-	{MODKEY, XK_w, spawn, {.v = (const char *[]){"firefox", NULL}}},
-	//{MODKEY, XK_m, spawn, {.v = (const char *[]){"thunderbird", NULL}}},
+	{MODKEY, XK_w, spawn, {.v = (const char *[]){"chromium", "--force-dark-mode", NULL}}},
+	{MODKEY, XK_m, spawn, {.v = (const char *[]){"thunderbird", NULL}}},
 	{0, XK_Print, spawn, {.v = (const char *[]){"xfce4-screenshooter", NULL}}},
 };
 

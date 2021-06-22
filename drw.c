@@ -247,7 +247,6 @@ drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int
 		XDrawRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w - 1, h - 1);
 }
 
-// SHOULD BE IN drw.c
 static unsigned char 
 blend(unsigned char a, unsigned char x, unsigned char y) { return ((255-a)*x + a*y) / 255; }
 
