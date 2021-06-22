@@ -46,7 +46,7 @@
 #include "drw.h"
 #include "util.h"
 
-//#define NDEBUG
+#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #include <time.h>
@@ -1175,7 +1175,7 @@ geticonprop(Window win)
 	// generate temporary image buffer
 	int i, sz = w * h;
 	uint32_t *buf = malloc(sz << 2); if(!buf) { XFree(p); return NULL; }
-	for (i = 0; i < sz; ++i) buf[i] = bstp[i] & 0xffffffffu;
+	for (i = 0; i < sz; ++i) buf[i] = bstp[i];
 	XFree(p);
 
 	// generate icon
