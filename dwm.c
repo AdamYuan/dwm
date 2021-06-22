@@ -46,7 +46,7 @@
 #include "drw.h"
 #include "util.h"
 
-#define NDEBUG
+//#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #include <time.h>
@@ -829,6 +829,7 @@ cmpint(const void *p1, const void *p2) {
 void
 drawbar(Monitor *m)
 {
+	static unsigned char tmp[ICONSIZE * ICONSIZE << 2]; // for drw_img (to blend icon with bg color)
 #ifndef NDEBUG
 	time_t ti = clock();
 #endif
@@ -905,7 +906,7 @@ drawbar(Monitor *m)
 			w = m->tab_widths[i];
 			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
 			drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + iconspacing : 0), c->name, 0);
-			if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon);
+			if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
 			if (c->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			x += w;
@@ -924,7 +925,7 @@ drawbar(Monitor *m)
 			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
 				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + iconspacing : 0), c->name, 0);
-				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon);
+				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
 				if (xpw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
 					drw_rect(drw, x + w, 0, xpw, bh, 1, 1);
@@ -1111,16 +1112,24 @@ geticonprop(Window win)
 	unsigned long n, extra;
 	Atom real;
 
+#ifndef NDEBUG
+	time_t ti = clock();
+#endif
 	if (XGetWindowProperty(dpy, win, netatom[NetWMIcon], 0L, LONG_MAX, False, AnyPropertyType, 
 						   &real, &format, &n, &extra, (unsigned char **)&p) != Success) { 
 		return NULL; 
 	}
+#ifndef NDEBUG
+	ti = clock() - ti;
+	fprintf(logfile, "[geticonprop] XGetWindowProperty in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
+	fflush(logfile);
+#endif
 	if (n == 0) { XFree(p); return NULL; }
 
-//#ifndef NDEBUG
-//	fprintf(logfile, "[geticonprop] n=%lu\n", n);
-//	fflush(logfile);
-//#endif
+#ifndef NDEBUG
+	fprintf(logfile, "[geticonprop] n=%lu\n", n);
+	fflush(logfile);
+#endif
 	unsigned long *beg = (unsigned long *)p, *bstbeg = NULL, *i, w, h, m;
 	const unsigned long *end = beg + n / sizeof (unsigned long);
 
@@ -1156,10 +1165,10 @@ geticonprop(Window win)
 		if (ich < 1) ich = 1;
 		else if (ich > ICONSIZE) ich = ICONSIZE;
 	}
-//#ifndef NDEBUG
-//	fprintf(logfile, "[geticonprop] w=%ld, h=%ld, icw=%d, ich=%d\n", w, h, icw, ich);
-//	fflush(logfile);
-//#endif
+#ifndef NDEBUG
+	fprintf(logfile, "[geticonprop] w=%ld, h=%ld, icw=%d, ich=%d\n", w, h, icw, ich);
+	fflush(logfile);
+#endif
 
 #if ULONG_MAX == UINT64_MAX // sizeof(long) == 8
 
@@ -2407,11 +2416,11 @@ void freeicon(Client *c) {
 	if (c->icon) {
 		XDestroyImage(c->icon);
 		c->icon = NULL;
-	}
 #ifndef NDEBUG
-	fprintf(logfile, "[freeicon] %s\n", c->name);
-	fflush(logfile);
+		fprintf(logfile, "[freeicon] %s\n", c->name);
+		fflush(logfile);
 #endif
+	}
 }
 
 void
@@ -2608,31 +2617,4 @@ main(int argc, char *argv[])
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
-}
-
-
-// SHOULD BE IN drw.c
-static char 
-blend(unsigned char a, unsigned char x, unsigned char y) { return ((255-a)*x + a*y) / 255; }
-
-void
-drw_img(Drw *drw, int x, int y, XImage *img) 
-{
-	static unsigned char tmp[ICONSIZE * ICONSIZE << 2];
-	unsigned char *data = (unsigned char *)img->data;
-	if (!drw || !drw->scheme)
-		return;
-	// alpha blend
-	int icsz = img->width * img->height, bt = drw->scheme[ColBg].pixel, i;
-	unsigned char r = (bt & 0x000000ff), g = (bt & 0x0000ff00)>>8, b = (bt & 0x00ff0000)>>16;
-	memcpy(tmp, data, icsz << 2);
-	for (i = 0; i < icsz; ++i) {
-		unsigned char a = data[(i<<2)|3];
-		data[(i<<2)  ] = blend(a, r, data[(i<<2)  ]);
-		data[(i<<2)|1] = blend(a, g, data[(i<<2)|1]);
-		data[(i<<2)|2] = blend(a, b, data[(i<<2)|2]);
-	}
-	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, img->width, img->height);
-
-	memcpy(data, tmp, icsz << 2);
 }
