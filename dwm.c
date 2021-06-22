@@ -212,7 +212,6 @@ static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
 static void freeicon(Client *c); // FREE ICON
-static int hasicon(Client *c); // HAS ICON
 static void resize(Client *c, int x, int y, int w, int h, int bw, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h, int bw);
 static void resizemouse(const Arg *arg);
@@ -879,7 +878,7 @@ drawbar(Monitor *m)
 		m->ntabs = 0;
 		for(c = m->clients; c; c = c->next){
 			if(!CANFOCUS(c)) continue;
-			m->tab_widths[m->ntabs] = TEXTW(c->name) + (hasicon(c) ? c->icon->width + iconspacing : 0);
+			m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + iconspacing : 0);
 			tot_width += m->tab_widths[m->ntabs];
 			++m->ntabs;
 			if(m->ntabs >= MAXTABS) break;
@@ -905,10 +904,8 @@ drawbar(Monitor *m)
 			if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
 			w = m->tab_widths[i];
 			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
-			int hic = hasicon(c), icw, ich;
-			if (hic) icw = c->icon->width, ich = c->icon->height;
-			drw_text(drw, x, 0, w, bh, lrpad / 2 + (hic ? icw + iconspacing : 0), c->name, 0);
-			if (hic) drw_img(drw, x + lrpad / 2, (bh - ich) / 2, icw, ich, c->icon);
+			drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + iconspacing : 0), c->name, 0);
+			if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon);
 			if (c->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			x += w;
@@ -926,10 +923,8 @@ drawbar(Monitor *m)
 		if ((w = m->ww - x - xpw) > bh) {
 			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
-				int hic = hasicon(c), icw, ich;
-				if (hic) icw = c->icon->width, ich = c->icon->height;
-				drw_text(drw, x, 0, w, bh, lrpad / 2 + (hic ? icw + iconspacing : 0), c->name, 0);
-				if (hic) drw_img(drw, x + lrpad / 2, (bh - ich) / 2, icw, ich, c->icon);
+				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + iconspacing : 0), c->name, 0);
+				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon);
 				if (xpw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
 					drw_rect(drw, x + w, 0, xpw, bh, 1, 1);
@@ -2418,9 +2413,6 @@ void freeicon(Client *c) {
 	fflush(logfile);
 #endif
 }
-int hasicon(Client *c)  {
-	return c->icon != NULL;
-}
 
 void
 updateicon(Client *c)
@@ -2624,7 +2616,7 @@ static char
 blend(unsigned char a, unsigned char x, unsigned char y) { return ((255-a)*x + a*y) / 255; }
 
 void
-drw_img(Drw *drw, int x, int y, unsigned int w, unsigned int h, XImage *img) 
+drw_img(Drw *drw, int x, int y, XImage *img) 
 {
 	static unsigned char tmp[ICONSIZE * ICONSIZE << 2];
 	unsigned char *data = (unsigned char *)img->data;
@@ -2640,7 +2632,7 @@ drw_img(Drw *drw, int x, int y, unsigned int w, unsigned int h, XImage *img)
 		data[(i<<2)|1] = blend(a, g, data[(i<<2)|1]);
 		data[(i<<2)|2] = blend(a, b, data[(i<<2)|2]);
 	}
-	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, w, h);
+	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, img->width, img->height);
 
 	memcpy(data, tmp, icsz << 2);
 }
