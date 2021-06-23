@@ -48,6 +48,7 @@ static const Rule rules[] = {
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Steam",    NULL,       "Friends List", 0,            1,           -1 },
+	{ NULL,       NULL,       "Picture in picture", 0,            1,           -1 }, // chromium picture in picture
 	{ panel[1],   NULL,       panel[0],       (1 << 9) - 1, 0,           -1 },
 };
 

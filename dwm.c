@@ -1526,7 +1526,6 @@ propertynotify(XEvent *e)
 	if (ev->state == PropertyDelete)
 		return; /* ignore */
 	else if ((c = wintoclient(ev->window))) {
-		int ub = 0;
 		switch(ev->atom) {
 		default: break;
 		case XA_WM_TRANSIENT_FOR:
@@ -1539,17 +1538,17 @@ propertynotify(XEvent *e)
 			break;
 		case XA_WM_HINTS:
 			updatewmhints(c);
-			ub = 1;
+			drawbars();
 			break;
 		}
-		int rdb = c == c->mon->sel || c->mon->ntabs > 0; // redraw bar
+		int ub = 0, rdb = c == c->mon->sel || c->mon->ntabs > 0; // redraw bar
 		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
-			if (rdb) ub = 1;
+			ub = rdb;
 		}
 		if (ev->atom == netatom[NetWMIcon]) {
 			updateicon(c);
-			if (rdb) ub = 1;
+			ub = rdb;
 #ifndef NDEBUG
 			fprintf(logfile, "[propertynotify] %s icon changed\n", c->name);
 			fflush(logfile);
