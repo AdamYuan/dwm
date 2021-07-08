@@ -1170,32 +1170,19 @@ geticonprop(Window win)
 	fflush(logfile);
 #endif
 
-#if ULONG_MAX == UINT64_MAX // sizeof(long) == 8
-
-	// generate temporary image buffer
-	int i, sz = w * h;
-	uint32_t *buf = malloc(sz << 2); if(!buf) { XFree(p); return NULL; }
-	for (i = 0; i < sz; ++i) buf[i] = bstp[i];
-	XFree(p);
-
-	// generate icon
-	unsigned char *icbuf;
-	if (w == icw && h == ich) icbuf = (unsigned char *) buf;
-	else {
-		icbuf = malloc(icw * ich << 2); if(!icbuf) { free(buf); return NULL; }
-		stbir_resize_uint8((unsigned char *)buf, w, h, 0, icbuf, icw, ich, 0, 4);
-		free(buf);
-	}
-
-#elif ULONG_MAX == UINT32_MAX
-
-	// generate icon
+	// alloc icon buffer
 	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { XFree(p); return NULL; }
-	if (w == icw && h == ich) memcpy(icbuf, bstp, icw * ich << 2);
-	else stbir_resize_uint8((unsigned char *)bstp, w, h, 0, icbuf, icw, ich, 0, 4); 
-	XFree(p);
 
+#if ULONG_MAX > UINT32_MAX // sizeof(long) > 4, then translate bstp (c standard ensures sizeof(long) >= 4)
+	int i, sz = w * h;
+	uint32_t *bstp32 = (uint32_t *)bstp;
+	for (i = 0; i < sz; ++i) bstp32[i] = bstp[i];
 #endif
+
+	// generate icon
+	if (w == icw && h == ich) memcpy(icbuf, bstp, icw * ich << 2);
+	else stbir_resize_uint8((unsigned char *)bstp, w, h, 0, icbuf, icw, ich, 0, 4);
+	XFree(p);
 
 	return XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
 }
