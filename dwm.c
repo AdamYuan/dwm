@@ -829,7 +829,7 @@ cmpint(const void *p1, const void *p2) {
 void
 drawbar(Monitor *m)
 {
-	static unsigned char tmp[ICONSIZE * ICONSIZE << 2]; // for drw_img (to blend icon with bg color)
+	static uint32_t tmp[ICONSIZE * ICONSIZE]; // for drw_img (to blend icon with bg color)
 #ifndef NDEBUG
 	time_t ti = clock();
 #endif
