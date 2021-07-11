@@ -43,6 +43,8 @@
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
 
+#include <Imlib2.h>
+
 #include "drw.h"
 #include "util.h"
 
@@ -1100,10 +1102,6 @@ getstate(Window w)
 	return result;
 }
 
-#define STB_IMAGE_RESIZE_IMPLEMENTATION
-#define STBIR_DEFAULT_FILTER_DOWNSAMPLE STBIR_FILTER_BOX
-#include "stb_image_resize.h"
-
 XImage *
 geticonprop(Window win)
 {
@@ -1171,7 +1169,7 @@ geticonprop(Window win)
 #endif
 
 	// alloc icon buffer
-	unsigned char *icbuf = malloc(icw * ich << 2); if(!icbuf) { XFree(p); return NULL; }
+	uint32_t *icbuf = malloc(icw * ich << 2); if(!icbuf) { XFree(p); return NULL; }
 
 #if ULONG_MAX > UINT32_MAX // sizeof(long) > 4, then translate bstp (c standard ensures sizeof(long) >= 4)
 	int i, sz = w * h;
@@ -1181,7 +1179,22 @@ geticonprop(Window win)
 
 	// generate icon
 	if (w == icw && h == ich) memcpy(icbuf, bstp, icw * ich << 2);
-	else stbir_resize_uint8((unsigned char *)bstp, w, h, 0, icbuf, icw, ich, 0, 4);
+	else 
+	{
+		Imlib_Image origin = imlib_create_image_using_data(w, h, (DATA32 *)bstp);
+		imlib_context_set_image(origin);
+		imlib_image_set_has_alpha(1);
+		Imlib_Image scaled = imlib_create_cropped_scaled_image(0, 0, w, h, icw, ich);
+		imlib_context_set_image(origin);
+		imlib_free_image();
+
+		imlib_context_set_image(scaled);
+		imlib_image_set_has_alpha(1);
+		DATA32 *data = imlib_image_get_data();
+		memcpy(icbuf, data, icw * ich << 2);
+		imlib_image_put_back_data(data);
+		imlib_free_image();
+	}
 	XFree(p);
 
 	return XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
@@ -1528,21 +1541,20 @@ propertynotify(XEvent *e)
 			drawbars();
 			break;
 		}
-		int ub = 0, rdb = c == c->mon->sel || c->mon->ntabs > 0; // redraw bar
 		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
 			updatetitle(c);
-			ub = rdb;
+			if (c == c->mon->sel || c->mon->ntabs > 0)
+				drawbar(c->mon);
 		}
-		if (ev->atom == netatom[NetWMIcon]) {
+		else if (ev->atom == netatom[NetWMIcon]) {
 			updateicon(c);
-			ub = rdb;
+			if (c == c->mon->sel || c->mon->ntabs > 0)
+				drawbar(c->mon);
 #ifndef NDEBUG
 			fprintf(logfile, "[propertynotify] %s icon changed\n", c->name);
 			fflush(logfile);
 #endif
 		}
-
-		if (ub) drawbar(c->mon);
 
 		if (ev->atom == netatom[NetWMWindowType])
 			updatewindowtype(c);
