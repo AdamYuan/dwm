@@ -42,7 +42,6 @@
 #include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
-
 #include <Imlib2.h>
 
 #include "drw.h"
@@ -881,7 +880,7 @@ drawbar(Monitor *m)
 		m->ntabs = 0;
 		for(c = m->clients; c; c = c->next){
 			if(!CANFOCUS(c)) continue;
-			m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + iconspacing : 0);
+			m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + ICONSPACING : 0);
 			tot_width += m->tab_widths[m->ntabs];
 			++m->ntabs;
 			if(m->ntabs >= MAXTABS) break;
@@ -907,7 +906,7 @@ drawbar(Monitor *m)
 			if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
 			w = m->tab_widths[i];
 			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + iconspacing : 0), c->name, 0);
+			drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
 			if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
 			if (c->isfloating)
 				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
@@ -926,7 +925,7 @@ drawbar(Monitor *m)
 		if ((w = m->ww - x - xpw) > bh) {
 			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
-				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + iconspacing : 0), c->name, 0);
+				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
 				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
 				if (xpw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
@@ -1182,18 +1181,16 @@ geticonprop(Window win)
 	else 
 	{
 		Imlib_Image origin = imlib_create_image_using_data(w, h, (DATA32 *)bstp);
+		if (!origin) { XFree(p); return NULL; }
 		imlib_context_set_image(origin);
 		imlib_image_set_has_alpha(1);
 		Imlib_Image scaled = imlib_create_cropped_scaled_image(0, 0, w, h, icw, ich);
-		imlib_context_set_image(origin);
-		imlib_free_image();
-
+		imlib_free_image_and_decache();
+		if (!scaled) { XFree(p); return NULL; }
 		imlib_context_set_image(scaled);
 		imlib_image_set_has_alpha(1);
-		DATA32 *data = imlib_image_get_data();
-		memcpy(icbuf, data, icw * ich << 2);
-		imlib_image_put_back_data(data);
-		imlib_free_image();
+		memcpy(icbuf, imlib_image_get_data_for_reading_only(), icw * ich << 2);
+		imlib_free_image_and_decache();
 	}
 	XFree(p);
 

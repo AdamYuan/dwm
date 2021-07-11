@@ -10,7 +10,7 @@ static const int showbar = 1;           /* 0 means no bar */
 static const int topbar = 1;            /* 0 means bottom bar */
 
 #define ICONSIZE 20
-static const int iconspacing = 5;
+#define ICONSPACING 5
 
 static const int focusonwheel = 0;
 
@@ -33,6 +33,7 @@ static const char *const autostart[] = {
 	"compton", NULL,
 	"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1", NULL,
 	"sh", "-c", "GDK_BACKEND=x11 pamac-tray", NULL,
+	"nm-applet", NULL,
 	"fcitx5", NULL,
 	"xfce4-panel", "--disable-wm-check", NULL,
 	NULL /* terminate */
@@ -99,7 +100,7 @@ static Key keys[] = {
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
 	{MODKEY, XK_Up, setmfact, {.f = +0.05}},
 	{MODKEY, XK_o, zoom, {0}},
-	{MODKEY, XK_s, zoom, {0}},
+	{MODKEY, XK_q, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
 
