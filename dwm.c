@@ -1101,6 +1101,13 @@ getstate(Window w)
 	return result;
 }
 
+inline static uint32_t prealpha(uint32_t p) {
+	uint8_t a = p >> 24u;
+	uint32_t rb = (a * (p & 0xFF00FFu)) >> 8u;
+	uint32_t g = (a * (p & 0x00FF00u)) >> 8u;
+	return (rb & 0xFF00FFu) | (g & 0x00FF00u) | ((~a) << 24u);
+}
+
 XImage *
 geticonprop(Window win)
 {
@@ -1151,7 +1158,7 @@ geticonprop(Window win)
 
 	w = *(bstp - 2); h = *(bstp - 1);
 
-	int icw, ich; // scale icon's largest size axis to ICONSIZE
+	int icw, ich, icsz; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
 		ich = ICONSIZE; icw = w * ICONSIZE / h;
 		if (icw < 1) icw = 1;
@@ -1162,22 +1169,24 @@ geticonprop(Window win)
 		if (ich < 1) ich = 1;
 		else if (ich > ICONSIZE) ich = ICONSIZE;
 	}
+	icsz = icw * ich;
 #ifndef NDEBUG
 	fprintf(logfile, "[geticonprop] w=%ld, h=%ld, icw=%d, ich=%d\n", w, h, icw, ich);
 	fflush(logfile);
 #endif
 
 	// alloc icon buffer
-	uint32_t *icbuf = malloc(icw * ich << 2); if(!icbuf) { XFree(p); return NULL; }
+	uint32_t *icbuf = malloc(icsz << 2); if(!icbuf) { XFree(p); return NULL; }
 
+	int i;
 #if ULONG_MAX > UINT32_MAX // sizeof(long) > 4, then translate bstp (c standard ensures sizeof(long) >= 4)
-	int i, sz = w * h;
+	int sz = w * h;
 	uint32_t *bstp32 = (uint32_t *)bstp;
 	for (i = 0; i < sz; ++i) bstp32[i] = bstp[i];
 #endif
 
 	// generate icon
-	if (w == icw && h == ich) memcpy(icbuf, bstp, icw * ich << 2);
+	if (w == icw && h == ich) memcpy(icbuf, bstp, icsz << 2);
 	else 
 	{
 		Imlib_Image origin = imlib_create_image_using_data(w, h, (DATA32 *)bstp);
@@ -1189,11 +1198,12 @@ geticonprop(Window win)
 		if (!scaled) { XFree(p); return NULL; }
 		imlib_context_set_image(scaled);
 		imlib_image_set_has_alpha(1);
-		memcpy(icbuf, imlib_image_get_data_for_reading_only(), icw * ich << 2);
+		memcpy(icbuf, imlib_image_get_data_for_reading_only(), icsz << 2);
 		imlib_free_image_and_decache();
 	}
 	XFree(p);
 
+	for (i = 0; i < icsz; ++i) icbuf[i] = prealpha(icbuf[i]);
 	return XCreateImage(dpy, DefaultVisual(dpy, screen), DefaultDepth(dpy, screen), ZPixmap, 0, (char *)icbuf, icw, ich, 32, 0);
 }
 
