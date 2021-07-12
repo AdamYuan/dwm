@@ -248,10 +248,10 @@ drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int
 		XDrawRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w - 1, h - 1);
 }
 
-inline static uint32_t blend(uint32_t p1, uint32_t p2) {
+inline static uint32_t blend(uint32_t p1rb, uint32_t p1g, uint32_t p2) {
 	uint8_t a = p2 >> 24u;
-	uint32_t rb = (p2 & 0xFF00FFu) + ( (a * (p1 & 0xFF00FFu)) >> 8u );
-	uint32_t g = (p2 & 0x00FF00u) + ( (a * (p1 & 0x00FF00u)) >> 8u );
+	uint32_t rb = (p2 & 0xFF00FFu) + ( (a * p1rb) >> 8u );
+	uint32_t g = (p2 & 0x00FF00u) + ( (a * p1g) >> 8u );
 	return (rb & 0xFF00FFu) | (g & 0x00FF00u);
 }
 
@@ -260,9 +260,9 @@ drw_img(Drw *drw, int x, int y, XImage *img, uint32_t *tmp)
 {
 	if (!drw || !drw->scheme)
 		return;
-	uint32_t *data = (uint32_t *)img->data, bt = drw->scheme[ColBg].pixel;
+	uint32_t *data = (uint32_t *)img->data, p = drw->scheme[ColBg].pixel, prb = p & 0xFF00FFu, pg = p & 0x00FF00u;
 	int icsz = img->width * img->height, i;
-	for (i = 0; i < icsz; ++i) tmp[i] = blend(bt, data[i]);
+	for (i = 0; i < icsz; ++i) tmp[i] = blend(prb, pg, data[i]);
 
 	img->data = (char *) tmp;
 	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, img->width, img->height);
