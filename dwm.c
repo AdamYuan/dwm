@@ -1365,8 +1365,7 @@ manage(Window w, XWindowAttributes *wa)
 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
 	c->bw = borderpx;
     // no border - even when active
-	int cip = c->ispanel;
-    if (cip) c->bw = c->oldbw = 0;
+    if (c->ispanel) c->bw = c->oldbw = 0;
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
@@ -1392,7 +1391,7 @@ manage(Window w, XWindowAttributes *wa)
 	setclientstate(c, NormalState);
 	if (c->mon == selmon)
 		unfocus(selmon->sel, 0);
-	if (!cip) c->mon->sel = c;
+	if (!c->ispanel) c->mon->sel = c;
 	arrange(c->mon);
 	XMapWindow(dpy, c->win);
 	focus(NULL);
