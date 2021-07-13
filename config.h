@@ -9,9 +9,6 @@ static const char *const panel[] = { "xfce4-panel", "Xfce4-panel" }; /* name & c
 static const int showbar = 1;           /* 0 means no bar */
 static const int topbar = 1;            /* 0 means bottom bar */
 
-static const double activeopacity   = 1.0f;     /* Window opacity when it's focused (0 <= opacity <= 1) */
-static const double inactiveopacity = 0.8f;   /* Window opacity when it's inactive (0 <= opacity <= 1) */
-
 #define ICONSIZE 20
 #define ICONSPACING 5
 
