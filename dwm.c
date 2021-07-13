@@ -1119,9 +1119,8 @@ geticonprop(Window win)
 	time_t ti = clock();
 #endif
 	if (XGetWindowProperty(dpy, win, netatom[NetWMIcon], 0L, LONG_MAX, False, AnyPropertyType, 
-						   &real, &format, &n, &extra, (unsigned char **)&p) != Success) { 
+						   &real, &format, &n, &extra, (unsigned char **)&p) != Success)
 		return NULL; 
-	}
 #ifndef NDEBUG
 	ti = clock() - ti;
 	fprintf(logfile, "[geticonprop] XGetWindowProperty in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
@@ -1175,9 +1174,6 @@ geticonprop(Window win)
 	fflush(logfile);
 #endif
 
-	// alloc icon buffer
-	uint32_t *icbuf = malloc(icsz << 2); if(!icbuf) { XFree(p); return NULL; }
-
 	int i;
 #if ULONG_MAX > UINT32_MAX // sizeof(long) > 4, then translate bstp (c standard ensures sizeof(long) >= 4)
 	int sz = w * h;
@@ -1185,17 +1181,20 @@ geticonprop(Window win)
 	for (i = 0; i < sz; ++i) bstp32[i] = bstp[i];
 #endif
 
+	// alloc icon buffer
+	uint32_t *icbuf = malloc(icsz << 2); if(!icbuf) { XFree(p); return NULL; }
+
 	// generate icon
 	if (w == icw && h == ich) memcpy(icbuf, bstp, icsz << 2);
 	else 
 	{
 		Imlib_Image origin = imlib_create_image_using_data(w, h, (DATA32 *)bstp);
-		if (!origin) { XFree(p); return NULL; }
+		if (!origin) { XFree(p); free(icbuf); return NULL; }
 		imlib_context_set_image(origin);
 		imlib_image_set_has_alpha(1);
 		Imlib_Image scaled = imlib_create_cropped_scaled_image(0, 0, w, h, icw, ich);
 		imlib_free_image_and_decache();
-		if (!scaled) { XFree(p); return NULL; }
+		if (!scaled) { XFree(p); free(icbuf); return NULL; }
 		imlib_context_set_image(scaled);
 		imlib_image_set_has_alpha(1);
 		memcpy(icbuf, imlib_image_get_data_for_reading_only(), icsz << 2);
