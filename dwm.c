@@ -60,7 +60,7 @@ FILE *logfile = NULL;
                                * MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
 #define ISVISIBLEONTAG(C, T)    ((C->tags & T))
 #define ISVISIBLE(C)            ISVISIBLEONTAG(C, C->mon->tagset[C->mon->seltags])
-#define CANFOCUS(C)             (ISVISIBLE(C) && !ispanel(C))
+#define CANFOCUS(C)             (ISVISIBLE(C) && !C->ispanel)
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define MOUSEMASK               (BUTTONMASK|PointerMotionMask)
 #define WIDTH(X)                ((X)->w + 2 * (X)->bw)
@@ -108,6 +108,7 @@ struct Client {
 	XImage *icon;
 	unsigned int tags;
 	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
+	int ispanel;
 	Client *next;
 	Client *snext;
 	Monitor *mon;
@@ -197,7 +198,6 @@ static XImage *geticonprop(Window w);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
-static int ispanel(Client *c);
 static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
@@ -351,6 +351,12 @@ applyrules(Client *c)
 	XGetClassHint(dpy, c->win, &ch);
 	class    = ch.res_class ? ch.res_class : broken;
 	instance = ch.res_name  ? ch.res_name  : broken;
+
+	c->ispanel = 0;
+	if (!strcmp(c->name, panel[0]) && !strcmp(class, panel[1])) {
+		c->ispanel = 1;
+		c->tags = TAGMASK;
+	}
 
 	for (i = 0; i < LENGTH(rules); i++) {
 		r = &rules[i];
@@ -707,7 +713,7 @@ configurerequest(XEvent *e)
 			if (ev->value_mask & CWWidth) {
 				c->oldw = c->w;
 				c->w = ev->width;
-				if (ispanel(c)) { // MODIFIED: update bar when xfce4-panel width changed
+				if (c->ispanel) { // MODIFIED: update bar when xfce4-panel width changed
 					drawbar(c->mon);
 				}
 			}
@@ -844,7 +850,7 @@ drawbar(Monitor *m)
 
 	for (c = m->clients; c; c = c->next) {
         // prevent showing the panel as active application:
-		if (ispanel(c)) {
+		if (c->ispanel) {
 			xpw = c->w;
 			continue;
 		}
@@ -1270,11 +1276,6 @@ grabkeys(void)
 	}
 }
 
-int
-ispanel(Client *c) {
-    return !strcmp(c->name, panel[0]);
-}
-
 void
 incnmaster(const Arg *arg)
 {
@@ -1364,7 +1365,7 @@ manage(Window w, XWindowAttributes *wa)
 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
 	c->bw = borderpx;
     // no border - even when active
-	int cip = ispanel(c);
+	int cip = c->ispanel;
     if (cip) c->bw = c->oldbw = 0;
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
@@ -1614,7 +1615,7 @@ resizeclient(Client *c, int x, int y, int w, int h, int bw)
 	c->oldw = c->w; c->w = wc.width = w;
 	c->oldh = c->h; c->h = wc.height = h;
 	c->oldbw = c->bw; c->bw = wc.border_width = bw;
-	if (ispanel(c)) c->y = c->oldy = c->bw = wc.y = wc.border_width = 0;
+	if (c->ispanel) c->y = c->oldy = c->bw = wc.y = wc.border_width = 0;
 	XConfigureWindow(dpy, c->win, CWX|CWY|CWWidth|CWHeight|CWBorderWidth, &wc);
 	configure(c);
 	XSync(dpy, False);

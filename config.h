@@ -30,7 +30,7 @@ static const char *const autostart[] = {
 	"start-pulseaudio-x11", NULL,
 	"xfce4-power-manager", NULL,
 	"/usr/lib/xfce4/notifyd/xfce4-notifyd", NULL,
-	"compton", NULL,
+	"picom", NULL,
 	"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1", NULL,
 	"sh", "-c", "GDK_BACKEND=x11 pamac-tray", NULL,
 	"nm-applet", NULL,
@@ -50,7 +50,6 @@ static const Rule rules[] = {
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Steam",    NULL,       "Friends List", 0,            1,           -1 },
 	{ NULL,       NULL,       "Picture in picture", 0,            1,           -1 }, // chromium picture in picture
-	{ panel[1],   NULL,       panel[0],       (1 << 9) - 1, 0,           -1 },
 };
 
 /* layout(s) */
