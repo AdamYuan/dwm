@@ -19,22 +19,24 @@ static const char *colors[][3] = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = {"#aaaaaa", "#222B2E", "#222B2E"},
 	[SchemeSel] = {"#000000", "#2EB398", "#2EB398"},
+	[SchemeUrg] = {"#000000", "#F46067", "#F46067"},
 	[SchemeTitle] = {"#ffffff", "#222B2E", "#222B2E"},
 };
 
 /* autostart */
 static const char *const autostart[] = {
-	"feh", "--bg-scale", "/usr/share/backgrounds/xfce/default-adapta-lockscreen.jpg", NULL,
-	"xfce4-screensaver", NULL,
+	//"feh", "--bg-scale", "/usr/share/backgrounds/illyria-default-lockscreen.jpg", NULL,
+	"feh", "--bg-scale", "/usr/share/backgrounds/svo-san-miguel-2.png", NULL,
+	"light-locker", NULL,
 	"xfsettingsd", "--sm-client-disable", NULL, 
 	"start-pulseaudio-x11", NULL,
 	"xfce4-power-manager", NULL,
 	"/usr/lib/xfce4/notifyd/xfce4-notifyd", NULL,
-	"picom", NULL,
+	"compton", NULL,
 	"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1", NULL,
 	"sh", "-c", "GDK_BACKEND=x11 pamac-tray", NULL,
-	"nm-applet", NULL,
 	"fcitx5", NULL,
+	"nm-applet", NULL,
 	"xfce4-panel", "--disable-wm-check", NULL,
 	NULL /* terminate */
 };
@@ -49,7 +51,8 @@ static const Rule rules[] = {
 	 */
 	/* class      instance    title       tags mask     isfloating   monitor */
 	{ "Steam",    NULL,       "Friends List", 0,            1,           -1 },
-	{ NULL,       NULL,       "Picture in picture", 0,            1,           -1 }, // chromium picture in picture
+	{ "Steam",    NULL,       "Steam - News", 0,            1,           -1 },
+	{ panel[1],   NULL,       panel[0],       (1 << 9) - 1, 0,           -1 },
 };
 
 /* layout(s) */
@@ -61,7 +64,7 @@ static const int resizehints = 0; /* 1 means respect size hints in tiled resizal
 static const Layout layouts[] = {
 	/* symbol     arrange function */
 	{"[]=", tile}, /* first entry is default */
-	//{"><>", NULL}, /* no layout function means floating behavior */
+	// {"><>", NULL}, /* no layout function means floating behavior */
 	{"[M]", monocle},
 };
 
@@ -83,7 +86,7 @@ static const Layout layouts[] = {
 #define TERMRUN TERM " -e "
 
 static const char *rofiruncmd[] = {"rofi", "-show", "drun", "-modi", "drun", "-show-icons", "-font", "Noto Sans 16", "-icon-theme", "Papirus-Dark", "-run-shell-command", TERMRUN "{cmd}", NULL};
-static const char *rofiquitcmd[] = {"rofi", "-show", "p", "-modi", "p:rofi-power-menu", "-font", "NotoSans Nerd Font Regular 16", "-width", "20", "-lines", "6", NULL};
+static const char *rofiquitcmd[] = {"rofi", "-show", "p", "-modi", "p:rofi-power-menu", "-font", "NotoSans Nerd Font Regular 16", "-width", "20", "-lines", "4", NULL};
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -95,10 +98,9 @@ static Key keys[] = {
 	{MODKEY, XK_k, focusstack, {.i = -1}},
 	{MODKEY, XK_Left, focusstack, {.i = -1}},
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
-	{MODKEY, XK_Down, setmfact, {.f = -0.05}},
+	//{MODKEY, XK_Down, setmfact, {.f = -0.05}},
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
-	{MODKEY, XK_Up, setmfact, {.f = +0.05}},
-	{MODKEY, XK_o, zoom, {0}},
+	//{MODKEY, XK_Up, setmfact, {.f = +0.05}},
 	{MODKEY, XK_q, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
@@ -121,9 +123,15 @@ static Key keys[] = {
 	//{MODKEY | ShiftMask, XK_q, quit, {0}},
 	{MODKEY, XK_Return, spawn, {.v = (const char *[]){TERM, NULL}}},
 	{MODKEY, XK_t, spawn, {.v = (const char *[]){"thunar", NULL}}},
-	{MODKEY, XK_w, spawn, {.v = (const char *[]){"chromium", "--force-dark-mode", NULL}}},
+	{MODKEY, XK_w, spawn, {.v = (const char *[]){"firefox", NULL}}},
 	{MODKEY, XK_m, spawn, {.v = (const char *[]){"thunderbird", NULL}}},
 	{0, XK_Print, spawn, {.v = (const char *[]){"xfce4-screenshooter", NULL}}},
+
+	// asus controls
+	{0, XF86XK_Launch4, spawn, {.v = (const char *[]){"asusctl", "profile", "-n", NULL}}},
+	//{0, XF86XK_Launch1, spawn, {.v = (const char *[]){"asusctl", "profile", "boost", NULL}}},
+	{0, XF86XK_KbdBrightnessUp, NULL, {}},
+	{0, XF86XK_KbdBrightnessDown, NULL, {}}
 };
 
 /* button definitions */

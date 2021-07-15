@@ -34,6 +34,7 @@
 #include <sys/wait.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
+#include <X11/XF86keysym.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
@@ -72,7 +73,7 @@ FILE *logfile = NULL;
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
-enum { SchemeNorm, SchemeSel, SchemeTitle }; /* color schemes */
+enum { SchemeNorm, SchemeSel, SchemeUrg, SchemeTitle }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMIcon, NetWMState, NetWMCheck,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
        NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
@@ -127,7 +128,7 @@ typedef struct {
 	void (*arrange)(Monitor *);
 } Layout;
 
-#define MAXTABS 50
+#define MAXTABS 20
 
 typedef struct Pertag Pertag;
 struct Monitor {
@@ -864,12 +865,12 @@ drawbar(Monitor *m)
 	x = 0;
 	for (i = 0; i < LENGTH(tags); i++) {
 		w = TEXTW(tags[i]);
-		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
+		drw_setscheme(drw, scheme[urg & 1 << i ? SchemeUrg : (m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm)]);
+		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], 0);
 		if (occ & 1 << i)
 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
 				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
-				urg & 1 << i);
+				0);
 		x += w;
 	}
 	w = blw = TEXTW(m->ltsymbol);
@@ -911,7 +912,7 @@ drawbar(Monitor *m)
 			if(i >= m->ntabs) break;
 			if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
 			w = m->tab_widths[i];
-			drw_setscheme(drw, scheme[(c == m->sel) ? SchemeSel : SchemeNorm]);
+			drw_setscheme(drw, scheme[c->isurgent ? SchemeUrg : (c == m->sel ? SchemeSel : SchemeNorm)]);
 			drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
 			if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
 			if (c->isfloating)
@@ -2465,8 +2466,11 @@ updatewmhints(Client *c)
 		if (c == selmon->sel && wmh->flags & XUrgencyHint) {
 			wmh->flags &= ~XUrgencyHint;
 			XSetWMHints(dpy, c->win, wmh);
-		} else
-			c->isurgent = (wmh->flags & XUrgencyHint) ? 1 : 0;
+		} else {
+			if((c->isurgent = (wmh->flags & XUrgencyHint) ? 1 : 0)) {
+				XSetWindowBorder(dpy, c->win, scheme[SchemeUrg][ColBorder].pixel);
+			}
+		}
 		if (wmh->flags & InputHint)
 			c->neverfocus = !wmh->input;
 		else
