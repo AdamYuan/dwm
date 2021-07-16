@@ -1,7 +1,7 @@
 # AdamYuan's DWM build
 ## Features
 * Integrate xfce4-panel (perfectly) for systray and status.
-* **WINDOW ICONS** (use stb_image_resize.h to resize icons to the required size).
+* **WINDOW ICONS** (use Imlib2 to resize icons to the required size).
 * Title bar is transformed to tab bar in monocle mode.
 * Other [patches](https://github.com/AdamYuan/dwm/tree/master/patches)
 ## Screenshots
