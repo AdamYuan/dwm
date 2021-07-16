@@ -32,7 +32,7 @@ static const char *const autostart[] = {
 	"start-pulseaudio-x11", NULL,
 	"xfce4-power-manager", NULL,
 	"/usr/lib/xfce4/notifyd/xfce4-notifyd", NULL,
-	"compton", NULL,
+	"picom", NULL,
 	"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1", NULL,
 	"sh", "-c", "GDK_BACKEND=x11 pamac-tray", NULL,
 	"fcitx5", NULL,
@@ -42,7 +42,7 @@ static const char *const autostart[] = {
 };
 
 /* tagging */
-static const char *tags[] = {"1", "2", "3", "4"};
+static const char *tags[] = {"1", "2", "3", "4", "5", "6", "7", "8"};
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -72,8 +72,8 @@ static const Layout layouts[] = {
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY, TAG) \
 {MODKEY, KEY, view, {.ui = 1 << TAG}}, {MODKEY | ControlMask, KEY, toggleview, {.ui = 1 << TAG}}, \
-{MODKEY | ShiftMask, KEY, tag, {.ui = 1 << TAG}}, \
-{MODKEY | Mod1Mask, KEY, toggletag, {.ui = 1 << TAG}},
+{MODKEY | ShiftMask, KEY, tag, {.ui = 1 << TAG}},
+//{MODKEY | Mod1Mask, KEY, toggletag, {.ui = 1 << TAG}},
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
 #define SHCMD(cmd) \
@@ -117,6 +117,7 @@ static Key keys[] = {
 	//{MODKEY | ShiftMask, XK_comma, tagmon, {.i = -1}},
 	//{MODKEY | ShiftMask, XK_period, tagmon, {.i = +1}},
 	TAGKEYS(XK_1, 0) TAGKEYS(XK_2, 1) TAGKEYS(XK_3, 2) TAGKEYS(XK_4, 3)
+	TAGKEYS(XK_5, 4) TAGKEYS(XK_6, 5) TAGKEYS(XK_7, 6) TAGKEYS(XK_8, 7)
 
 	{MODKEY, XK_e, spawn, {.v = rofiruncmd}},
 	{MODKEY | ShiftMask, XK_q, spawn, {.v = rofiquitcmd}},
@@ -147,7 +148,7 @@ static Button buttons[] = {
 	{ClkClientWin, MODKEY, Button3, resizemouse, {0}},
 	{ClkTagBar, 0, Button1, view, {0}},
 	{ClkTagBar, 0, Button3, toggleview, {0}},
-	{ClkTagBar, MODKEY, Button1, tag, {0}},
-	{ClkTagBar, MODKEY, Button3, toggletag, {0}},
+	//{ClkTagBar, MODKEY, Button1, tag, {0}},
+	//{ClkTagBar, MODKEY, Button3, toggletag, {0}},
 	{ClkWinTitle, 0, Button1, focuswin, {0}},
 };
