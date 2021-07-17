@@ -871,7 +871,7 @@ drawbar(Monitor *m)
 	for (i = 0; i < LENGTH(tags); i++) {
 		/* do not draw vacant tags */
 		if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
-		continue;
+			continue;
 
 		w = TEXTW(tags[i]);
 		drw_setscheme(drw, scheme[urg & 1 << i ? SchemeUrg : (m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm)]);
@@ -887,7 +887,7 @@ drawbar(Monitor *m)
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
 	if (DRAWTAB(m, nvis)) { // tab mode
-		int sorted_label_widths[MAXTABS];
+		static int sorted_label_widths[MAXTABS];
 		int tot_width = 0;
 		int maxsize = bh;
 		w = m->ww - x - xpw;
