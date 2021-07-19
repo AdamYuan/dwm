@@ -109,7 +109,7 @@ struct Client {
 	XImage *icon;
 	unsigned int tags;
 	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
-	int ispanel;
+	int ispanel, issteamapp;
 	Client *next;
 	Client *snext;
 	Monitor *mon;
@@ -353,11 +353,13 @@ applyrules(Client *c)
 	class    = ch.res_class ? ch.res_class : broken;
 	instance = ch.res_name  ? ch.res_name  : broken;
 
-	c->ispanel = 0;
+	c->issteamapp = c->ispanel = 0;
 	if (!strcmp(c->name, panel[0]) && !strcmp(class, panel[1])) {
 		c->ispanel = 1;
 		c->tags = TAGMASK;
 	}
+	else if (strstr(class, "steam_app_"))
+		c->issteamapp = 1;
 
 	for (i = 0; i < LENGTH(rules); i++) {
 		r = &rules[i];
@@ -708,24 +710,26 @@ configurerequest(XEvent *e)
 			c->bw = ev->border_width;
 		else if (c->isfloating || !selmon->lt[selmon->sellt]->arrange) {
 			m = c->mon;
-			if (ev->value_mask & CWX) {
-				c->oldx = c->x;
-				c->x = m->mx + ev->x;
-			}
-			if (ev->value_mask & CWY) {
-				c->oldy = c->y;
-				c->y = m->my + ev->y;
-			}
-			if (ev->value_mask & CWWidth) {
-				c->oldw = c->w;
-				c->w = ev->width;
-				if (c->ispanel) { // MODIFIED: update bar when xfce4-panel width changed
-					drawbar(c->mon);
+			if (!c->issteamapp) {
+				if (ev->value_mask & CWX) {
+					c->oldx = c->x;
+					c->x = m->mx + ev->x;
 				}
-			}
-			if (ev->value_mask & CWHeight) {
-				c->oldh = c->h;
-				c->h = ev->height;
+				if (ev->value_mask & CWY) {
+					c->oldy = c->y;
+					c->y = m->my + ev->y;
+				}
+				if (ev->value_mask & CWWidth) {
+					c->oldw = c->w;
+					c->w = ev->width;
+					if (c->ispanel) { // MODIFIED: update bar when xfce4-panel width changed
+						drawbar(c->mon);
+					}
+				}
+				if (ev->value_mask & CWHeight) {
+					c->oldh = c->h;
+					c->h = ev->height;
+				}
 			}
 			if ((c->x + c->w) > m->mx + m->mw && c->isfloating)
 				c->x = m->mx + (m->mw / 2 - WIDTH(c) / 2); /* center in x direction */
@@ -1811,6 +1815,8 @@ setfocus(Client *c)
 		if (c->isfloating)
 			XRaiseWindow(dpy, c->win); // MODED: to raise floating window after focusing
 	}
+	if (c->issteamapp)
+		setclientstate(c, NormalState);
 	sendevent(c, wmatom[WMTakeFocus]);
 }
 
