@@ -2413,8 +2413,8 @@ updatesizehints(Client *c)
 		c->maxa = (float)size.max_aspect.x / size.max_aspect.y;
 	} else
 		c->maxa = c->mina = 0.0;
-	c->isfixed = (c->maxw && c->maxh && c->maxw == c->minw && c->maxh == c->minh) 
-		|| (c->maxa && size.min_aspect.x == size.max_aspect.x && size.min_aspect.y == size.max_aspect.y);
+	c->isfixed = (c->maxw && c->maxh && c->maxw == c->minw && c->maxh == c->minh);
+		//|| (c->maxa && size.min_aspect.x == size.max_aspect.x && size.min_aspect.y == size.max_aspect.y);
 }
 
 void
