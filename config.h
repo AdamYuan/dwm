@@ -132,7 +132,7 @@ static Key keys[] = {
 	{0, XF86XK_Launch4, spawn, {.v = (const char *[]){"asusctl", "profile", "-n", NULL}}},
 	//{0, XF86XK_Launch1, spawn, {.v = (const char *[]){"asusctl", "profile", "boost", NULL}}},
 	{0, XF86XK_KbdBrightnessUp, NULL, {0}},
-	{0, XF86XK_KbdBrightnessDown, NULL, {}}
+	{0, XF86XK_KbdBrightnessDown, NULL, {0}}
 };
 
 /* button definitions */
