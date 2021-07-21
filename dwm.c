@@ -890,59 +890,58 @@ drawbar(Monitor *m)
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
-	if (DRAWTAB(m, nvis)) { // tab mode
-		static int sorted_label_widths[MAXTABS];
-		int tot_width = 0;
-		int maxsize = bh;
-		w = m->ww - x - xpw;
+	if ((w = m->ww - x - xpw) > bh) {
+		if (DRAWTAB(m, nvis)) { // tab mode
+			static int sorted_label_widths[MAXTABS];
+			int tot_width = 0;
+			int maxsize = bh;
 
-		/* Calculates number of labels and their width */
-		m->ntabs = 0;
-		for(c = m->clients; c; c = c->next){
-			if(!CANFOCUS(c)) continue;
-			m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + ICONSPACING : 0);
-			tot_width += m->tab_widths[m->ntabs];
-			++m->ntabs;
-			if(m->ntabs >= MAXTABS) break;
-		}
-
-		if(tot_width > w){ //not enough space to display the labels, they need to be truncated
-			memcpy(sorted_label_widths, m->tab_widths, sizeof(int) * m->ntabs);
-			qsort(sorted_label_widths, m->ntabs, sizeof(int), cmpint);
-			tot_width = 0;// view_info_w;
-			for(i = 0; i < m->ntabs; ++i){
-				if(tot_width + (m->ntabs - i) * sorted_label_widths[i] > w)
-					break;
-				tot_width += sorted_label_widths[i];
+			/* Calculates number of labels and their width */
+			m->ntabs = 0;
+			for(c = m->clients; c; c = c->next){
+				if(!CANFOCUS(c)) continue;
+				m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + ICONSPACING : 0);
+				tot_width += m->tab_widths[m->ntabs];
+				++m->ntabs;
+				if(m->ntabs >= MAXTABS) break;
 			}
-			maxsize = (w - tot_width) / (m->ntabs - i);
-		} else{
-			maxsize = w;
-		}
-		i = 0;
-		for(c = m->clients; c; c = c->next){
-			if(!CANFOCUS(c)) continue;
-			if(i >= m->ntabs) break;
-			if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
-			w = m->tab_widths[i];
-			drw_setscheme(drw, scheme[c->isurgent ? SchemeUrg : (c == m->sel ? SchemeSel : SchemeNorm)]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
-			if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
-			if (c->isfloating)
-				drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
-			x += w;
-			++i;
-		}
 
-		drw_setscheme(drw, scheme[SchemeNorm]);
+			if(tot_width > w){ //not enough space to display the labels, they need to be truncated
+				memcpy(sorted_label_widths, m->tab_widths, sizeof(int) * m->ntabs);
+				qsort(sorted_label_widths, m->ntabs, sizeof(int), cmpint);
+				tot_width = 0;// view_info_w;
+				for(i = 0; i < m->ntabs; ++i){
+					if(tot_width + (m->ntabs - i) * sorted_label_widths[i] > w)
+						break;
+					tot_width += sorted_label_widths[i];
+				}
+				maxsize = (w - tot_width) / (m->ntabs - i);
+			} else{
+				maxsize = w;
+			}
+			i = 0;
+			for(c = m->clients; c; c = c->next){
+				if(!CANFOCUS(c)) continue;
+				if(i >= m->ntabs) break;
+				if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
+				w = m->tab_widths[i];
+				drw_setscheme(drw, scheme[c->isurgent ? SchemeUrg : (c == m->sel ? SchemeSel : SchemeNorm)]);
+				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
+				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
+				if (c->isfloating)
+					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
+				x += w;
+				++i;
+			}
 
-		/* cleans interspace between window names and current viewed tag label */
-		w = m->ww - x;
-		if (w >= 0) drw_rect(drw, x, 0, w, bh, 1, 1);
-	} else {
-		m->ntabs = 0;
+			drw_setscheme(drw, scheme[SchemeNorm]);
 
-		if ((w = m->ww - x - xpw) > bh) {
+			/* cleans interspace between window names and current viewed tag label */
+			w = m->ww - x;
+			if (w >= 0) drw_rect(drw, x, 0, w, bh, 1, 1);
+		} else {
+			m->ntabs = 0;
+
 			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
 				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
