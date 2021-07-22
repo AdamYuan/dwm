@@ -14,7 +14,10 @@ static const int topbar = 1;            /* 0 means bottom bar */
 
 static const int focusonwheel = 0;
 
-static const char *fonts[] = {"Noto Sans:pixelsize=16:style=Bold:antialias=true"};
+static const unsigned int baralpha = 0xd0;
+static const unsigned int borderalpha = OPAQUE;
+
+static const char *fonts[] = {"Noto Sans:pixelsize=16:style=Bold:antialias=true", "Noto Color Emoji:pixelsize=16:style=Bold:antialias=true"};
 static const char *colors[][3] = {
 	/*               fg         bg         border   */
 	[SchemeNorm] = {"#aaaaaa", "#222B2E", "#222B2E"},
@@ -23,10 +26,18 @@ static const char *colors[][3] = {
 	[SchemeTitle] = {"#ffffff", "#222B2E", "#222B2E"},
 };
 
+static const unsigned int alphas[][3]      = {
+	/*               fg      bg        border     */
+	[SchemeNorm] = { OPAQUE, baralpha, borderalpha },
+	[SchemeSel]  = { OPAQUE, baralpha, borderalpha },
+	[SchemeUrg]  = { OPAQUE, baralpha, borderalpha },
+	[SchemeTitle]= { OPAQUE, baralpha, borderalpha },
+};
+
 /* autostart */
 static const char *const autostart[] = {
-	//"feh", "--bg-scale", "/usr/share/backgrounds/illyria-default-lockscreen.jpg", NULL,
-	"feh", "--bg-scale", "/usr/share/backgrounds/svo-san-miguel-2.png", NULL,
+	"feh", "--bg-scale", "/usr/share/backgrounds/illyria-default-lockscreen.jpg", NULL,
+	//"feh", "--bg-scale", "/usr/share/backgrounds/svo-san-miguel-2.png", NULL,
 	"light-locker", NULL,
 	"xfsettingsd", "--sm-client-disable", NULL, 
 	"start-pulseaudio-x11", NULL,
@@ -96,6 +107,7 @@ static Key keys[] = {
 	{MODKEY, XK_Tab, focusstack, {.i = +1}},
 	{MODKEY, XK_k, focusstack, {.i = -1}},
 	{MODKEY, XK_Left, focusstack, {.i = -1}},
+	{MODKEY | ShiftMask, XK_Tab, focusstack, {.i = -1}},
 	{MODKEY, XK_h, setmfact, {.f = -0.05}},
 	//{MODKEY, XK_Down, setmfact, {.f = -0.05}},
 	{MODKEY, XK_l, setmfact, {.f = +0.05}},
