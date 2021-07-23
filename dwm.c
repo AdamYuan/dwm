@@ -1165,16 +1165,16 @@ geticonprop(Window win)
 	{ // select best icon
 		unsigned long *i; const unsigned long *end = p + n;
 		uint32_t bstd = UINT32_MAX, d, m; // best h, best delta
-		for (i = p; i + 1 < end; ) { // prefer the smallest icon that is larger than ICONSIZE
+		for (i = p; i + 1 < end; i += sz) { // prefer the smallest icon that is larger than ICONSIZE
 			if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return NULL; }
-			m = w > h ? w : h; sz = w * h;
-			if ((i += sz) <= end && m >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i - sz; }
+			if ((sz = w * h) > end - i) break;
+			if ((m = w > h ? w : h) >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i; }
 		}
 		if (!bstp) { // fallback to the largest icon smaller than ICONSIZE
-			for (i = p; i + 1 < end; ) {
+			for (i = p; i + 1 < end; i += sz) {
 				if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return NULL; }
-				m = w > h ? w : h; sz = w * h;
-				if ((i += sz) <= end && (d = ICONSIZE - m) < bstd) { bstd = d; bstp = i - sz; }
+				if ((sz = w * h) > end - i) break;
+				if ((d = ICONSIZE - (w > h ? w : h)) < bstd) { bstd = d; bstp = i; }
 			}
 		}
 		if (!bstp) { XFree(p); return NULL; }
