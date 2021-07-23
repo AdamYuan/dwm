@@ -48,7 +48,7 @@
 #include "drw.h"
 #include "util.h"
 
-#define NDEBUG
+//#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #include <time.h>
@@ -1153,59 +1153,54 @@ geticonprop(Window win)
 	fprintf(logfile, "[geticonprop] XGetWindowProperty in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
 	fflush(logfile);
 #endif
-	if (n == 0) { XFree(p); return NULL; }
+	if (n == 0 || format != 32) { XFree(p); return NULL; }
 
 #ifndef NDEBUG
 	fprintf(logfile, "[geticonprop] n=%lu\n", n);
 	fflush(logfile);
 #endif
-	unsigned long *bstp = NULL, w, h;
+	unsigned long *bstp = NULL;
+	uint32_t w, h, sz;
 
 	{ // select best icon
-		const unsigned long *end = p + n;
-		unsigned long *i;
-		int bstd = INT_MAX, d, m; // best h, best delta
-		for (i = p; i < end; ) { // prefer the smallest icon that is larger than ICONSIZE
-			w = *i++; h = *i++;
-			m = w > h ? w : h;
-			if (m >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i; }
-			i += (w * h);
+		unsigned long *i; const unsigned long *end = p + n;
+		uint32_t bstd = UINT32_MAX, d, m; // best h, best delta
+		for (i = p; i + 1 < end; ) { // prefer the smallest icon that is larger than ICONSIZE
+			if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return NULL; }
+			m = w > h ? w : h; sz = w * h;
+			if ((i += sz) <= end && m >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i - sz; }
 		}
 		if (!bstp) { // fallback to the largest icon smaller than ICONSIZE
-			for (i = p; i < end; ) {
-				w = *i++; h = *i++;
-				m = w > h ? w : h;
-				if ((d = ICONSIZE - m) < bstd) { bstd = d; bstp = i; }
-				i += (w * h);
+			for (i = p; i + 1 < end; ) {
+				if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return NULL; }
+				m = w > h ? w : h; sz = w * h;
+				if ((i += sz) <= end && (d = ICONSIZE - m) < bstd) { bstd = d; bstp = i - sz; }
 			}
 		}
 		if (!bstp) { XFree(p); return NULL; }
 	}
 
-	w = *(bstp - 2); h = *(bstp - 1);
+	if ((w = *(bstp - 2)) == 0 || (h = *(bstp - 1)) == 0) { XFree(p); return NULL; }
 
-	int icw, ich, icsz; // scale icon's largest size axis to ICONSIZE
+	uint32_t icw, ich, icsz; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
 		ich = ICONSIZE; icw = w * ICONSIZE / h;
-		if (icw < 1) icw = 1;
-		else if (icw > ICONSIZE) icw = ICONSIZE;
+		if (icw == 0) icw = 1;
 	}
 	else {
 		icw = ICONSIZE; ich = h * ICONSIZE / w;
-		if (ich < 1) ich = 1;
-		else if (ich > ICONSIZE) ich = ICONSIZE;
+		if (ich == 0) ich = 1;
 	}
 	icsz = icw * ich;
 #ifndef NDEBUG
-	fprintf(logfile, "[geticonprop] w=%ld, h=%ld, icw=%d, ich=%d\n", w, h, icw, ich);
+	fprintf(logfile, "[geticonprop] w=%lu, h=%lu, icw=%u, ich=%u\n", w, h, icw, ich);
 	fflush(logfile);
 #endif
 
-	int i;
+	uint32_t i;
 #if ULONG_MAX > UINT32_MAX // sizeof(long) > 4, then translate bstp (c standard ensures sizeof(long) >= 4)
-	int sz = w * h;
 	uint32_t *bstp32 = (uint32_t *)bstp;
-	for (i = 0; i < sz; ++i) bstp32[i] = bstp[i];
+	for (i = 0, sz = w * h; i < sz; ++i) bstp32[i] = bstp[i];
 #endif
 
 	// alloc icon buffer

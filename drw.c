@@ -258,7 +258,7 @@ drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int
 		XDrawRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w - 1, h - 1);
 }
 
-inline static uint8_t div255(uint32_t x) {return (x*0x8081u) >> 23u; }
+inline static uint8_t div255(uint16_t x) { return (x*0x8081u) >> 23u; }
 inline static uint32_t blend(uint32_t p1rb, uint32_t p1g, uint8_t p1a, uint32_t p2) {
 	uint8_t a = p2 >> 24u;
 	uint32_t rb = (p2 & 0xFF00FFu) + ( (a * p1rb) >> 8u );

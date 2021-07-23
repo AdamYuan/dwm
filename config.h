@@ -40,6 +40,7 @@ static const char *const autostart[] = {
 	//"feh", "--bg-scale", "/usr/share/backgrounds/svo-san-miguel-2.png", NULL,
 	"light-locker", NULL,
 	"xfsettingsd", "--sm-client-disable", NULL, 
+	"xfce4-panel", "--disable-wm-check", NULL,
 	"start-pulseaudio-x11", NULL,
 	"xfce4-power-manager", NULL,
 	"/usr/lib/xfce4/notifyd/xfce4-notifyd", NULL,
@@ -48,7 +49,6 @@ static const char *const autostart[] = {
 	"sh", "-c", "GDK_BACKEND=x11 pamac-tray", NULL,
 	"fcitx5", NULL,
 	"nm-applet", NULL,
-	"xfce4-panel", "--disable-wm-check", NULL,
 	NULL /* terminate */
 };
 
