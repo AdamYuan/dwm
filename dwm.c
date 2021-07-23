@@ -48,7 +48,7 @@
 #include "drw.h"
 #include "util.h"
 
-//#define NDEBUG
+#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #include <time.h>
@@ -1193,7 +1193,7 @@ geticonprop(Window win)
 	}
 	icsz = icw * ich;
 #ifndef NDEBUG
-	fprintf(logfile, "[geticonprop] w=%lu, h=%lu, icw=%u, ich=%u\n", w, h, icw, ich);
+	fprintf(logfile, "[geticonprop] w=%u, h=%u, icw=%u, ich=%u\n", w, h, icw, ich);
 	fflush(logfile);
 #endif
 
