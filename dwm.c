@@ -69,8 +69,6 @@ FILE *logfile = NULL;
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
 #define TEXTW(X)                (drw_fontset_getwidth(drw, (X)) + lrpad)
 
-#define DRAWTAB(m, n)           (n > 1) && (m->lt[m->sellt]->arrange == monocle)
-
 #define OPAQUE                  0xffU
 
 /* enums */
@@ -264,6 +262,8 @@ static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void xinitvisual();
 static void zoom(const Arg *arg);
 static void autostart_exec(void);
+
+static void focusmaster(const Arg *arg);
 
 /* variables */
 static const char broken[] = "broken";
@@ -899,7 +899,7 @@ drawbar(Monitor *m)
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
 	if ((w = m->ww - x - xpw) > bh) {
-		if (DRAWTAB(m, nvis)) { // tab mode
+		if ((nvis > 1) && (m->lt[m->sellt]->arrange == monocle)/* && (!m->sel || !m->sel->isfloating)*/) { // tab mode
 			static int sorted_label_widths[MAXTABS];
 			int tot_width = 0;
 			int maxsize = bh;
@@ -2704,4 +2704,21 @@ main(int argc, char *argv[])
 	cleanup();
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
+}
+
+void
+focusmaster(const Arg *arg)
+{
+	Client *c;
+
+	if (selmon->lt[selmon->sellt]->arrange != tile)
+		return;
+
+	if (selmon->nmaster < 1)
+		return;
+
+	c = nexttiled(selmon->clients);
+
+	if (c)
+		focus(c);
 }

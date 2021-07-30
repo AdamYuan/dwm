@@ -82,7 +82,7 @@ static const Layout layouts[] = {
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY, TAG) \
 {MODKEY, KEY, view, {.ui = 1 << TAG}}, {MODKEY | ControlMask, KEY, toggleview, {.ui = 1 << TAG}}, \
-{MODKEY | ShiftMask, KEY, tag, {.ui = 1 << TAG}},
+{MODKEY | ShiftMask, KEY, tag, {.ui = 1 << TAG}}
 //{MODKEY | Mod1Mask, KEY, toggletag, {.ui = 1 << TAG}},
 
 /* helper for spawning shell commands in the pre dwm-5.0 fashion */
@@ -115,21 +115,22 @@ static Key keys[] = {
 	{MODKEY, XK_q, zoom, {0}},
 	{MODKEY, XK_equal, incnmaster, {.i = +1}},
 	{MODKEY, XK_minus, incnmaster, {.i = -1}},
+	{MODKEY, XK_space, focusmaster, {0}},
 
 	// {MODKEY, XK_Tab, view, {0}},
 	{MODKEY, XK_x, killclient, {0}},
 	{MODKEY, XK_d, setlayout, {0}},
 	{MODKEY, XK_f, togglefullscr, {0}},
 	{MODKEY | ShiftMask, XK_f, togglefloating, {0}},
-	{MODKEY, XK_0, view, {.ui = ~0}},
-	{MODKEY | ShiftMask, XK_0, tag, {.ui = ~0}},
+	//{MODKEY, XK_0, view, {.ui = ~0}},
+	//{MODKEY | ShiftMask, XK_0, tag, {.ui = ~0}},
 	//{MODKEY, XK_comma, focusmon, {.i = -1}},
 	//{MODKEY, XK_period, focusmon, {.i = +1}},
 	//{MODKEY | ShiftMask, XK_comma, tagmon, {.i = -1}},
 	//{MODKEY | ShiftMask, XK_period, tagmon, {.i = +1}},
-	TAGKEYS(XK_1, 0) TAGKEYS(XK_2, 1) TAGKEYS(XK_3, 2) TAGKEYS(XK_4, 3)
-	TAGKEYS(XK_5, 4) TAGKEYS(XK_6, 5) TAGKEYS(XK_7, 6) TAGKEYS(XK_8, 7)
-	TAGKEYS(XK_9, 8)
+	TAGKEYS(XK_1, 0), TAGKEYS(XK_2, 1), TAGKEYS(XK_3, 2), TAGKEYS(XK_4, 3),
+	TAGKEYS(XK_5, 4), TAGKEYS(XK_6, 5), TAGKEYS(XK_7, 6), TAGKEYS(XK_8, 7),
+	TAGKEYS(XK_9, 8),
 
 	{MODKEY, XK_e, spawn, {.v = rofiruncmd}},
 	{MODKEY | ShiftMask, XK_q, spawn, {.v = rofiquitcmd}},
