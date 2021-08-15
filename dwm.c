@@ -61,7 +61,6 @@ FILE *logfile = NULL;
                                * MAX(0, MIN((y)+(h),(m)->wy+(m)->wh) - MAX((y),(m)->wy)))
 #define ISVISIBLEONTAG(C, T)    ((C->tags & T))
 #define ISVISIBLE(C)            ISVISIBLEONTAG(C, C->mon->tagset[C->mon->seltags])
-#define CANFOCUS(C)             (ISVISIBLE(C) && !C->ispanel)
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define MOUSEMASK               (BUTTONMASK|PointerMotionMask)
 #define WIDTH(X)                ((X)->w + 2 * (X)->bw)
@@ -109,7 +108,7 @@ struct Client {
 	XImage *icon;
 	unsigned int tags;
 	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
-	int ispanel, issteamapp;
+	int issteamapp;
 	Client *next;
 	Client *snext;
 	Monitor *mon;
@@ -149,6 +148,8 @@ struct Monitor {
 	Client *stack;
 	Monitor *next;
 	Window barwin;
+	Window x4pwin; // xfce4-panel window
+	int x4pw; // xfce4-panel width
 	int ntabs;
 	int tab_widths[MAXTABS];
 	const Layout *lt[2];
@@ -200,9 +201,11 @@ static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
 static void incnmaster(const Arg *arg);
+static int isx4panel(Window win);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
 static void manage(Window w, XWindowAttributes *wa);
+static void managex4panel(Window w, XWindowAttributes *wa);
 static void mappingnotify(XEvent *e);
 static void maprequest(XEvent *e);
 static void monocle(Monitor *m);
@@ -242,6 +245,7 @@ static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
 static void unfocus(Client *c, int setfocus);
 static void unmanage(Client *c, int destroyed);
+static void unmanagex4panel(Monitor *m);
 static void unmapnotify(XEvent *e);
 static void updatebarpos(Monitor *m);
 static void updatebars(void);
@@ -256,6 +260,7 @@ static void updatewmhints(Client *c);
 static void view(const Arg *arg);
 static Client *wintoclient(Window w);
 static Monitor *wintomon(Window w);
+static Monitor *wintox4panel(Window w);
 static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
@@ -361,12 +366,8 @@ applyrules(Client *c)
 	class    = ch.res_class ? ch.res_class : broken;
 	instance = ch.res_name  ? ch.res_name  : broken;
 
-	c->issteamapp = c->ispanel = 0;
-	if (!strcmp(c->name, panel[0]) && !strcmp(class, panel[1])) {
-		c->ispanel = 1;
-		c->tags = TAGMASK;
-	}
-	else if (strstr(class, "steam_app_"))
+	c->issteamapp = 0;
+	if (strstr(class, "steam_app_"))
 		c->issteamapp = 1;
 
 	for (i = 0; i < LENGTH(rules); i++) {
@@ -480,7 +481,7 @@ arrangemon(Monitor *m)
 	else
 		/* <>< case; rather than providing an arrange function and upsetting other logic that tests for its presence, simply add borders here */
 		for (c = selmon->clients; c; c = c->next)
-			if (CANFOCUS(c) && c->bw == 0)
+			if (ISVISIBLE(c) && c->bw == 0)
 				resize(c, c->x, c->y, c->w - 2*borderpx, c->h - 2*borderpx, borderpx, 0);
 }
 
@@ -539,7 +540,7 @@ buttonpress(XEvent *e)
 	if (ev->window == selmon->barwin) {
 		i = x = 0;
 		for (c = m->clients; c; c = c->next)
-			if (!c->ispanel) occ |= c->tags;
+			occ |= c->tags;
 		do {
 			/* do not reserve space for vacant tags */
 			if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
@@ -558,7 +559,7 @@ buttonpress(XEvent *e)
 			else {
 				i = 0; c = NULL;
 				for(c = selmon->clients; c; c = c->next){
-					if(!CANFOCUS(c)) continue;
+					if(!ISVISIBLE(c)) continue;
 					x += selmon->tab_widths[i];
 					if (ev->x > x)
 						++i;
@@ -713,7 +714,14 @@ configurerequest(XEvent *e)
 	XConfigureRequestEvent *ev = &e->xconfigurerequest;
 	XWindowChanges wc;
 
-	if ((c = wintoclient(ev->window))) {
+	if ((m = wintox4panel(ev->window))) {
+		if (ev->value_mask & CWWidth) {
+			m->x4pw = ev->width;
+			drawbar(m);
+		}
+		XMoveResizeWindow(dpy, m->x4pwin, m->mx + ev->x, m->my + ev->y, ev->width, ev->height);
+	}
+	else if ((c = wintoclient(ev->window))) {
 		if (ev->value_mask & CWBorderWidth)
 			c->bw = ev->border_width;
 		else if (c->isfloating || !selmon->lt[selmon->sellt]->arrange) {
@@ -730,9 +738,6 @@ configurerequest(XEvent *e)
 				if (ev->value_mask & CWWidth) {
 					c->oldw = c->w;
 					c->w = ev->width;
-					if (c->ispanel) { // MODIFIED: update bar when xfce4-panel width changed
-						drawbar(c->mon);
-					}
 				}
 				if (ev->value_mask & CWHeight) {
 					c->oldh = c->h;
@@ -799,9 +804,12 @@ void
 destroynotify(XEvent *e)
 {
 	Client *c;
+	Monitor *m;
 	XDestroyWindowEvent *ev = &e->xdestroywindow;
 
-	if ((c = wintoclient(ev->window)))
+	if ((m = wintox4panel(ev->window)))
+		unmanagex4panel(m);
+	else if ((c = wintoclient(ev->window)))
 		unmanage(c, 1);
 }
 
@@ -823,7 +831,7 @@ detachstack(Client *c)
 	*tc = c->snext;
 
 	if (c == c->mon->sel) {
-		for (t = c->mon->stack; t && !CANFOCUS(t); t = t->snext);
+		for (t = c->mon->stack; t && !ISVISIBLE(t); t = t->snext);
 		c->mon->sel = t;
 	}
 }
@@ -864,14 +872,9 @@ drawbar(Monitor *m)
 	unsigned int i, occ = 0, urg = 0;
 	Client *c;
 
-	int xpw = 0, nvis = 0; // xfce4-panel width
+	int nvis = 0; // xfce4-panel width
 
 	for (c = m->clients; c; c = c->next) {
-        // prevent showing the panel as active application:
-		if (c->ispanel) {
-			xpw = c->w;
-			continue;
-		}
 		if (ISVISIBLE(c))
 			++ nvis;
 
@@ -898,7 +901,7 @@ drawbar(Monitor *m)
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
-	if ((w = m->ww - x - xpw) > bh) {
+	if ((w = m->ww - x - m->x4pw) > bh) {
 		if ((nvis > 1) && (m->lt[m->sellt]->arrange == monocle)/* && (!m->sel || !m->sel->isfloating)*/) { // tab mode
 			static int sorted_label_widths[MAXTABS];
 			int tot_width = 0;
@@ -907,7 +910,7 @@ drawbar(Monitor *m)
 			/* Calculates number of labels and their width */
 			m->ntabs = 0;
 			for(c = m->clients; c; c = c->next){
-				if(!CANFOCUS(c)) continue;
+				if(!ISVISIBLE(c)) continue;
 				m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + ICONSPACING : 0);
 				tot_width += m->tab_widths[m->ntabs];
 				++m->ntabs;
@@ -929,7 +932,7 @@ drawbar(Monitor *m)
 			}
 			i = 0;
 			for(c = m->clients; c; c = c->next){
-				if(!CANFOCUS(c)) continue;
+				if(!ISVISIBLE(c)) continue;
 				if(i >= m->ntabs) break;
 				if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
 				w = m->tab_widths[i];
@@ -954,15 +957,15 @@ drawbar(Monitor *m)
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
 				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
 				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
-				if (xpw > 0) {
+				if (m->x4pw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
-					drw_rect(drw, x + w, 0, xpw, bh, 1, 1);
+					drw_rect(drw, x + w, 0, m->x4pw, bh, 1, 1);
 				}
 				if (c->isfloating)
 					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			} else {
 				drw_setscheme(drw, scheme[SchemeNorm]);
-				drw_rect(drw, x, 0, w + xpw, bh, 1, 1);
+				drw_rect(drw, x, 0, w + m->x4pw, bh, 1, 1);
 			}
 		}
 	}
@@ -998,8 +1001,8 @@ expose(XEvent *e)
 void
 focus(Client *c)
 {
-	if (!c || !CANFOCUS(c))
-		for (c = selmon->stack; c && !CANFOCUS(c); c = c->snext);
+	if (!c || !ISVISIBLE(c))
+		for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
 	if (selmon->sel && selmon->sel != c)
 		unfocus(selmon->sel, 0);
 	if (c) {
@@ -1052,16 +1055,16 @@ focusstack(const Arg *arg)
 	if (!selmon->sel)
 		return;
 	if (arg->i > 0) {
-		for (c = selmon->sel->next; c && !CANFOCUS(c); c = c->next);
+		for (c = selmon->sel->next; c && !ISVISIBLE(c); c = c->next);
 		if (!c)
-			for (c = selmon->clients; c && !CANFOCUS(c); c = c->next);
+			for (c = selmon->clients; c && !ISVISIBLE(c); c = c->next);
 	} else {
 		for (i = selmon->clients; i != selmon->sel; i = i->next)
-			if (CANFOCUS(i))
+			if (ISVISIBLE(i))
 				c = i;
 		if (!c)
 			for (; i; i = i->next)
-				if (CANFOCUS(i))
+				if (ISVISIBLE(i))
 					c = i;
 	}
 	if (c) {
@@ -1075,8 +1078,8 @@ focuswin(const Arg* arg){
 	int iwin = arg->i;
 	if (iwin < 0) return;
 	Client* c = NULL;
-	for(c = selmon->clients; c && (iwin || !CANFOCUS(c)) ; c = c->next){
-		if(CANFOCUS(c)) --iwin;
+	for(c = selmon->clients; c && (iwin || !ISVISIBLE(c)) ; c = c->next){
+		if(ISVISIBLE(c)) --iwin;
 	};
 	if(c) {
 		focus(c);
@@ -1299,6 +1302,28 @@ incnmaster(const Arg *arg)
 	arrange(selmon);
 }
 
+int
+isx4panel(Window win) {
+	static char name[256];
+	XClassHint ch = {NULL, NULL};
+	int ret = 0;
+	if (XGetClassHint(dpy, win, &ch) && ch.res_class && !strcmp(ch.res_class, "Xfce4-panel")) {
+		if (!gettextprop(win, netatom[NetWMName], name, sizeof name))
+			gettextprop(win, XA_WM_NAME, name, sizeof name);
+		if (name[0] == '\0') /* hack to mark broken clients */
+			strcpy(name, broken);
+
+		if (!strcmp(name, "xfce4-panel"))
+			ret = 1;
+	}
+	if (ch.res_class)
+		XFree(ch.res_class);
+	if (ch.res_name)
+		XFree(ch.res_name);
+
+	return ret;
+}
+
 #ifdef XINERAMA
 static int
 isuniquegeom(XineramaScreenInfo *unique, size_t n, XineramaScreenInfo *info)
@@ -1380,8 +1405,6 @@ manage(Window w, XWindowAttributes *wa)
 	c->y = MAX(c->y, ((c->mon->by == c->mon->my) && (c->x + (c->w / 2) >= c->mon->wx)
 		&& (c->x + (c->w / 2) < c->mon->wx + c->mon->ww)) ? bh : c->mon->my);
 	c->bw = borderpx;
-    // no border - even when active
-    if (c->ispanel) c->bw = c->oldbw = 0;
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
@@ -1407,10 +1430,34 @@ manage(Window w, XWindowAttributes *wa)
 	setclientstate(c, NormalState);
 	if (c->mon == selmon)
 		unfocus(selmon->sel, 0);
-	if (!c->ispanel) c->mon->sel = c;
 	arrange(c->mon);
 	XMapWindow(dpy, c->win);
 	focus(NULL);
+}
+
+void
+managex4panel(Window win, XWindowAttributes *wa) {
+	Monitor *m;
+	if (!(m = recttomon(wa->x, wa->y, wa->width, wa->height)))
+		return;
+	if (win == m->x4pwin) return;
+
+#ifndef NDEBUG
+	fprintf(logfile, "[managex4panel] x + w = %d ? mw = %d\n", wa->x + wa->width, m->ww);
+	fprintf(logfile, "[managex4panel] y = %d ? mh = %d\n", wa->y, m->wh);
+	fflush(logfile);
+#endif
+
+	if (wa->x + wa->width == m->ww && wa->y == 0) { // top-right corner
+		m->x4pwin = win;
+		m->x4pw = wa->width;
+		drawbar(m);
+	}
+
+	XSelectInput(dpy, win, EnterWindowMask | FocusChangeMask | PropertyChangeMask | StructureNotifyMask);
+	XMoveResizeWindow(dpy, win, wa->x, wa->y, wa->width, wa->height);
+	XMapWindow(dpy, win);
+	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend, (unsigned char *)&win, 1);
 }
 
 void
@@ -1433,7 +1480,9 @@ maprequest(XEvent *e)
 		return;
 	if (wa.override_redirect)
 		return;
-	if (!wintoclient(ev->window))
+	if (isx4panel(ev->window))
+		managex4panel(ev->window, &wa);
+	else if (!wintoclient(ev->window))
 		manage(ev->window, &wa);
 }
 
@@ -1444,7 +1493,7 @@ monocle(Monitor *m)
 	Client *c;
 
 	for (c = m->clients; c; c = c->next)
-		if (CANFOCUS(c))
+		if (ISVISIBLE(c))
 			n++;
 	if (n > 0) /* override layout symbol */
 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
@@ -1525,7 +1574,7 @@ nexttagged(Client *c) {
 Client *
 nexttiled(Client *c)
 {
-	for (; c && (c->isfloating || !CANFOCUS(c)); c = c->next);
+	for (; c && (c->isfloating || !ISVISIBLE(c)); c = c->next);
 	return c;
 }
 
@@ -1630,7 +1679,6 @@ resizeclient(Client *c, int x, int y, int w, int h, int bw)
 	c->oldw = c->w; c->w = wc.width = w;
 	c->oldh = c->h; c->h = wc.height = h;
 	c->oldbw = c->bw; c->bw = wc.border_width = bw;
-	if (c->ispanel) c->y = c->oldy = c->bw = wc.y = wc.border_width = 0;
 	XConfigureWindow(dpy, c->win, CWX|CWY|CWWidth|CWHeight|CWBorderWidth, &wc);
 	configure(c);
 	XSync(dpy, False);
@@ -1729,7 +1777,7 @@ restack(Monitor *m)
 		wc.stack_mode = Below;
 		wc.sibling = m->barwin;
 		for (c = m->stack; c; c = c->snext)
-			if (!c->isfloating && CANFOCUS(c)) {
+			if (!c->isfloating && ISVISIBLE(c)) {
 				XConfigureWindow(dpy, c->win, CWSibling|CWStackMode, &wc);
 				wc.sibling = c->win;
 			}
@@ -1761,13 +1809,17 @@ scan(void)
 			if (!XGetWindowAttributes(dpy, wins[i], &wa)
 			|| wa.override_redirect || XGetTransientForHint(dpy, wins[i], &d1))
 				continue;
-			if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
+			if (isx4panel(wins[i]))
+				managex4panel(wins[i], &wa);
+			else if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
 				manage(wins[i], &wa);
 		}
 		for (i = 0; i < num; i++) { /* now the transients */
 			if (!XGetWindowAttributes(dpy, wins[i], &wa))
 				continue;
-			if (XGetTransientForHint(dpy, wins[i], &d1)
+			if (isx4panel(wins[i]))
+				managex4panel(wins[i], &wa);
+			else if (XGetTransientForHint(dpy, wins[i], &d1)
 			&& (wa.map_state == IsViewable || getstate(wins[i]) == IconicState))
 				manage(wins[i], &wa);
 		}
@@ -2230,12 +2282,22 @@ unmanage(Client *c, int destroyed)
 }
 
 void
+unmanagex4panel(Monitor *m) {
+	m->x4pwin = None;
+	m->x4pw = 0;
+	drawbar(m);
+}
+
+void
 unmapnotify(XEvent *e)
 {
 	Client *c;
+	Monitor *m;
 	XUnmapEvent *ev = &e->xunmap;
 
-	if ((c = wintoclient(ev->window))) {
+	if ((m = wintox4panel(ev->window)))
+		unmanagex4panel(m);
+	else if ((c = wintoclient(ev->window))) {
 		if (ev->send_event)
 			setclientstate(c, WithdrawnState);
 		else
@@ -2577,6 +2639,13 @@ wintomon(Window w)
 	if ((c = wintoclient(w)))
 		return c->mon;
 	return selmon;
+}
+
+Monitor *
+wintox4panel(Window w)
+{
+	Monitor *m;
+	return ((m = wintomon(w)) && m->x4pwin == w) ? m : NULL;
 }
 
 /* There's no way to check accesses to destroyed windows, thus those cases are
