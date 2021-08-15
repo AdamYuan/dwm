@@ -1310,9 +1310,6 @@ isx4panel(Window win) {
 	if (XGetClassHint(dpy, win, &ch) && ch.res_class && !strcmp(ch.res_class, "Xfce4-panel")) {
 		if (!gettextprop(win, netatom[NetWMName], name, sizeof name))
 			gettextprop(win, XA_WM_NAME, name, sizeof name);
-		if (name[0] == '\0') /* hack to mark broken clients */
-			strcpy(name, broken);
-
 		if (!strcmp(name, "xfce4-panel"))
 			ret = 1;
 	}
