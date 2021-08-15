@@ -48,7 +48,7 @@
 #include "drw.h"
 #include "util.h"
 
-//#define NDEBUG
+#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #include <time.h>
