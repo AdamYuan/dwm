@@ -48,7 +48,7 @@
 #include "drw.h"
 #include "util.h"
 
-#define NDEBUG
+//#define NDEBUG
 #ifndef NDEBUG
 FILE *logfile = NULL;
 #include <time.h>
@@ -1443,12 +1443,12 @@ managex4panel(Window win, XWindowAttributes *wa) {
 	if (win == m->x4pwin) return;
 
 #ifndef NDEBUG
-	fprintf(logfile, "[managex4panel] x + w = %d ? mw = %d\n", wa->x + wa->width, m->ww);
-	fprintf(logfile, "[managex4panel] y = %d ? mh = %d\n", wa->y, m->wh);
+	fprintf(logfile, "[managex4panel] x + w = %d ? mw = %d\n", wa->x + wa->width, m->mw);
+	fprintf(logfile, "[managex4panel] y = %d, h = %d ? mh = %d\n", wa->y, wa->height, m->mh);
 	fflush(logfile);
 #endif
 
-	if (wa->x + wa->width == m->ww && wa->y == 0) { // top-right corner
+	if (wa->x + wa->width == m->mw && ((topbar && wa->y == 0) || (!topbar && wa->y + wa->height == m->mh))) {
 		m->x4pwin = win;
 		m->x4pw = wa->width;
 		drawbar(m);
