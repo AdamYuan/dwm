@@ -43,7 +43,6 @@
 #include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
 #include <X11/Xft/Xft.h>
-#include <Imlib2.h>
 
 #include "drw.h"
 #include "util.h"
@@ -105,10 +104,10 @@ struct Client {
 	int oldx, oldy, oldw, oldh;
 	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
 	int bw, oldbw;
-	XImage *icon;
 	unsigned int tags;
 	int isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
 	int issteamapp;
+	unsigned int icw, ich; Picture icon;
 	Client *next;
 	Client *snext;
 	Monitor *mon;
@@ -196,7 +195,7 @@ static void focusstack(const Arg *arg);
 static void focuswin(const Arg* arg);
 static int getrootptr(int *x, int *y);
 static long getstate(Window w);
-static XImage *geticonprop(Window w);
+static Picture geticonprop(Window w, unsigned int *icw, unsigned int *ich);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 static void grabkeys(void);
@@ -862,7 +861,6 @@ cmpint(const void *p1, const void *p2) {
 void
 drawbar(Monitor *m)
 {
-	static uint32_t tmp[ICONSIZE * ICONSIZE]; // for drw_img (to blend icon with bg color)
 #ifndef NDEBUG
 	time_t ti = clock();
 #endif
@@ -911,7 +909,7 @@ drawbar(Monitor *m)
 			m->ntabs = 0;
 			for(c = m->clients; c; c = c->next){
 				if(!ISVISIBLE(c)) continue;
-				m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icon->width + ICONSPACING : 0);
+				m->tab_widths[m->ntabs] = TEXTW(c->name) + (c->icon ? c->icw + ICONSPACING : 0);
 				tot_width += m->tab_widths[m->ntabs];
 				++m->ntabs;
 				if(m->ntabs >= MAXTABS) break;
@@ -937,8 +935,8 @@ drawbar(Monitor *m)
 				if(m->tab_widths[i] > maxsize) m->tab_widths[i] = maxsize;
 				w = m->tab_widths[i];
 				drw_setscheme(drw, scheme[c->isurgent ? SchemeUrg : (c == m->sel ? SchemeSel : SchemeNorm)]);
-				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
-				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
+				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icw + ICONSPACING : 0), c->name, 0);
+				if (c->icon) drw_pic(drw, x + lrpad / 2, (bh - c->ich) / 2, c->icw, c->ich, c->icon);
 				if (c->isfloating)
 					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 				x += w;
@@ -955,8 +953,8 @@ drawbar(Monitor *m)
 
 			if ((c = m->sel)) {
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
-				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icon->width + ICONSPACING : 0), c->name, 0);
-				if (c->icon) drw_img(drw, x + lrpad / 2, (bh - c->icon->height) / 2, c->icon, tmp);
+				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icw + ICONSPACING : 0), c->name, 0);
+				if (c->icon) drw_pic(drw, x + lrpad / 2, (bh - c->ich) / 2, c->icw, c->ich, c->icon);
 				if (m->x4pw > 0) {
 					drw_setscheme(drw, scheme[SchemeNorm]);
 					drw_rect(drw, x + w, 0, m->x4pw, bh, 1, 1);
@@ -1135,11 +1133,11 @@ inline static uint32_t prealpha(uint32_t p) {
 	uint8_t a = p >> 24u;
 	uint32_t rb = (a * (p & 0xFF00FFu)) >> 8u;
 	uint32_t g = (a * (p & 0x00FF00u)) >> 8u;
-	return (rb & 0xFF00FFu) | (g & 0x00FF00u) | ((~a) << 24u);
+	return (rb & 0xFF00FFu) | (g & 0x00FF00u) | (a << 24u);
 }
 
-XImage *
-geticonprop(Window win)
+Picture
+geticonprop(Window win, unsigned int *picw, unsigned int *pich)
 {
 	int format;
 	unsigned long n, extra, *p = NULL;
@@ -1150,13 +1148,13 @@ geticonprop(Window win)
 #endif
 	if (XGetWindowProperty(dpy, win, netatom[NetWMIcon], 0L, LONG_MAX, False, AnyPropertyType, 
 						   &real, &format, &n, &extra, (unsigned char **)&p) != Success)
-		return NULL; 
+		return None; 
 #ifndef NDEBUG
 	ti = clock() - ti;
 	fprintf(logfile, "[geticonprop] XGetWindowProperty in %ld ns\n", ti * 1000000 / CLOCKS_PER_SEC);
 	fflush(logfile);
 #endif
-	if (n == 0 || format != 32) { XFree(p); return NULL; }
+	if (n == 0 || format != 32) { XFree(p); return None; }
 
 #ifndef NDEBUG
 	fprintf(logfile, "[geticonprop] n=%lu\n", n);
@@ -1169,21 +1167,21 @@ geticonprop(Window win)
 		unsigned long *i; const unsigned long *end = p + n;
 		uint32_t bstd = UINT32_MAX, d, m; // best h, best delta
 		for (i = p; i < end - 1; i += sz) { // prefer the smallest icon that is larger than ICONSIZE
-			if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return NULL; }
+			if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return None; }
 			if ((sz = w * h) > end - i) break;
 			if ((m = w > h ? w : h) >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i; }
 		}
 		if (!bstp) { // fallback to the largest icon smaller than ICONSIZE
 			for (i = p; i < end - 1; i += sz) {
-				if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return NULL; }
+				if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return None; }
 				if ((sz = w * h) > end - i) break;
 				if ((d = ICONSIZE - (w > h ? w : h)) < bstd) { bstd = d; bstp = i; }
 			}
 		}
-		if (!bstp) { XFree(p); return NULL; }
+		if (!bstp) { XFree(p); return None; }
 	}
 
-	if ((w = *(bstp - 2)) == 0 || (h = *(bstp - 1)) == 0) { XFree(p); return NULL; }
+	if ((w = *(bstp - 2)) == 0 || (h = *(bstp - 1)) == 0) { XFree(p); return None; }
 
 	uint32_t icw, ich, icsz; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
@@ -1195,40 +1193,21 @@ geticonprop(Window win)
 		if (ich == 0) ich = 1;
 	}
 	icsz = icw * ich;
+	*picw = icw; *pich = ich;
 #ifndef NDEBUG
 	fprintf(logfile, "[geticonprop] w=%u, h=%u, icw=%u, ich=%u\n", w, h, icw, ich);
 	fflush(logfile);
 #endif
 
-	uint32_t i;
-#if ULONG_MAX > UINT32_MAX // sizeof(long) > 4, then translate bstp (c standard ensures sizeof(long) >= 4)
-	uint32_t *bstp32 = (uint32_t *)bstp;
-	for (i = 0, sz = w * h; i < sz; ++i) bstp32[i] = bstp[i];
-#endif
+	sz = w * h;
+	uint32_t i, *bstp32 = (uint32_t *)bstp;
+	for (i = 0; i < sz; ++i) bstp32[i] = prealpha(bstp[i]);
 
-	// alloc icon buffer
-	uint32_t *icbuf = malloc(icsz << 2); if(!icbuf) { XFree(p); return NULL; }
-
-	// generate icon
-	if (w == icw && h == ich) memcpy(icbuf, bstp, icsz << 2);
-	else 
-	{
-		Imlib_Image origin = imlib_create_image_using_data(w, h, (DATA32 *)bstp);
-		if (!origin) { XFree(p); free(icbuf); return NULL; }
-		imlib_context_set_image(origin);
-		imlib_image_set_has_alpha(1);
-		Imlib_Image scaled = imlib_create_cropped_scaled_image(0, 0, w, h, icw, ich);
-		imlib_free_image_and_decache();
-		if (!scaled) { XFree(p); free(icbuf); return NULL; }
-		imlib_context_set_image(scaled);
-		imlib_image_set_has_alpha(1);
-		memcpy(icbuf, imlib_image_get_data_for_reading_only(), icsz << 2);
-		imlib_free_image_and_decache();
-	}
+	static char tmp[ICONSIZE * ICONSIZE << 2];
+	Picture ret = drw_create_resized_picture(drw, (char *)bstp, w, h, icw, ich, tmp);
 	XFree(p);
 
-	for (i = 0; i < icsz; ++i) icbuf[i] = prealpha(icbuf[i]);
-	return drw_image_create(drw, icbuf, icw, ich);
+	return ret;
 }
 
 int
@@ -2512,8 +2491,8 @@ updatetitle(Client *c)
 
 void freeicon(Client *c) {
 	if (c->icon) {
-		XDestroyImage(c->icon);
-		c->icon = NULL;
+		XRenderFreePicture(dpy, c->icon);
+		c->icon = None;
 #ifndef NDEBUG
 		fprintf(logfile, "[freeicon] %s\n", c->name);
 		fflush(logfile);
@@ -2528,7 +2507,7 @@ updateicon(Client *c)
 	time_t ti = clock();
 #endif
 	freeicon(c);
-	c->icon = geticonprop(c->win);
+	c->icon = geticonprop(c->win, &c->icw, &c->ich);
 #ifndef NDEBUG
 	ti = clock() - ti;
 	fprintf(logfile, "[updateicon] %s to %p in %ld ns\n", c->name, (void *)c->icon, ti * 1000000 / CLOCKS_PER_SEC);

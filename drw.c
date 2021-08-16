@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
+#include <Imlib2.h>
 
 #include "drw.h"
 #include "util.h"
@@ -77,6 +78,9 @@ drw_create(Display *dpy, int screen, Window root, unsigned int w, unsigned int h
 	drw->drawable = XCreatePixmap(dpy, root, w, h, depth);
 	drw->gc = XCreateGC(dpy, drw->drawable, 0, NULL);
 	XSetLineAttributes(dpy, drw->gc, 1, LineSolid, CapButt, JoinMiter);
+	drw->picformat = XRenderFindVisualFormat(dpy, visual);
+	XRenderPictureAttributes att;
+	drw->picture = XRenderCreatePicture(dpy, drw->drawable, drw->picformat, 0, &att);
 
 	return drw;
 }
@@ -97,15 +101,10 @@ drw_resize(Drw *drw, unsigned int w, unsigned int h)
 void
 drw_free(Drw *drw)
 {
+	XRenderFreePicture(drw->dpy, drw->picture);
 	XFreePixmap(drw->dpy, drw->drawable);
 	XFreeGC(drw->dpy, drw->gc);
 	free(drw);
-}
-
-XImage *
-drw_image_create(Drw *drw, const uint32_t *data, int w, int h) {
-	if (!drw) return NULL;
-	return XCreateImage(drw->dpy, drw->visual, drw->depth, ZPixmap, 0, (char *)data, w, h, 32, 0);
 }
 
 /* This function is an implementation detail. Library users should use
@@ -246,6 +245,56 @@ drw_setscheme(Drw *drw, Clr *scm)
 		drw->scheme = scm;
 }
 
+Picture
+drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int srch, unsigned int dstw, unsigned int dsth, char *tmp) {
+	XImage *xim;
+	Pixmap pm;
+	Picture pic;
+
+	if (srcw <= (dstw << 1u) && srch <= (dsth << 1u)) {
+		pm = XCreatePixmap(drw->dpy, drw->root, srcw, srch, drw->depth);
+		xim = XCreateImage(drw->dpy, drw->visual, drw->depth, ZPixmap, 0, src, srcw, srch, 32, 0);
+		XPutImage(drw->dpy, pm, drw->gc, xim, 0, 0, 0, 0, srcw, srch);
+		xim->data = NULL;
+		XDestroyImage(xim);
+
+		XRenderPictureAttributes att;
+		pic = XRenderCreatePicture(drw->dpy, pm, drw->picformat, 0, &att);
+		XFreePixmap(drw->dpy, pm);
+
+		XRenderSetPictureFilter(drw->dpy, pic, FilterBilinear, NULL, 0);
+		XTransform xf;
+		xf.matrix[0][0] = XDoubleToFixed((double)srcw / dstw); xf.matrix[0][1] = 0; xf.matrix[0][2] = 0;
+		xf.matrix[1][0] = 0; xf.matrix[1][1] = XDoubleToFixed((double)srch / dsth); xf.matrix[1][2] = 0;
+		xf.matrix[2][0] = 0; xf.matrix[2][1] = 0; xf.matrix[2][2] = 65536;
+		XRenderSetPictureTransform(drw->dpy, pic, &xf);
+	} else {
+		Imlib_Image origin = imlib_create_image_using_data(srcw, srch, (DATA32 *)src);
+		if (!origin) return None;
+		imlib_context_set_image(origin);
+		imlib_image_set_has_alpha(1);
+		Imlib_Image scaled = imlib_create_cropped_scaled_image(0, 0, srcw, srch, dstw, dsth);
+		imlib_free_image_and_decache();
+		if (!scaled) return None;
+		imlib_context_set_image(scaled);
+		imlib_image_set_has_alpha(1);
+		memcpy(tmp, imlib_image_get_data_for_reading_only(), (dstw * dsth) << 2);
+		imlib_free_image_and_decache();
+
+		pm = XCreatePixmap(drw->dpy, drw->root, dstw, dsth, drw->depth);
+		xim = XCreateImage(drw->dpy, drw->visual, drw->depth, ZPixmap, 0, (char *)tmp, dstw, dsth, 32, 0);
+		XPutImage(drw->dpy, pm, drw->gc, xim, 0, 0, 0, 0, dstw, dsth);
+		xim->data = NULL;
+		XDestroyImage(xim);
+
+		XRenderPictureAttributes att;
+		pic = XRenderCreatePicture(drw->dpy, pm, drw->picformat, 0, &att);
+		XFreePixmap(drw->dpy, pm);
+	}
+
+	return pic;
+}
+
 void
 drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int invert)
 {
@@ -258,28 +307,12 @@ drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int
 		XDrawRectangle(drw->dpy, drw->drawable, drw->gc, x, y, w - 1, h - 1);
 }
 
-inline static uint8_t div255(uint16_t x) { return (x*0x8081u) >> 23u; }
-inline static uint32_t blend(uint32_t p1rb, uint32_t p1g, uint8_t p1a, uint32_t p2) {
-	uint8_t a = p2 >> 24u;
-	uint32_t rb = (p2 & 0xFF00FFu) + ( (a * p1rb) >> 8u );
-	uint32_t g = (p2 & 0x00FF00u) + ( (a * p1g) >> 8u );
-	return (rb & 0xFF00FFu) | (g & 0x00FF00u) | div255(~a * 255u + a * p1a) << 24u;
-}
-
 void
-drw_img(Drw *drw, int x, int y, XImage *img, uint32_t *tmp) 
+drw_pic(Drw *drw, int x, int y, unsigned int w, unsigned int h, Picture pic)
 {
-	if (!drw || !drw->scheme)
+	if (!drw)
 		return;
-	uint32_t *data = (uint32_t *)img->data, p = drw->scheme[ColBg].pixel,
-			 prb = p & 0xFF00FFu, pg = p & 0x00FF00u;
-	uint8_t pa = p >> 24u;
-	int icsz = img->width * img->height, i;
-	for (i = 0; i < icsz; ++i) tmp[i] = blend(prb, pg, pa, data[i]);
-
-	img->data = (char *) tmp;
-	XPutImage(drw->dpy, drw->drawable, drw->gc, img, 0, 0, x, y, img->width, img->height);
-	img->data = (char *) data;
+	XRenderComposite(drw->dpy, PictOpOver, pic, None, drw->picture, 0, 0, 0, 0, x, y, w, h);
 }
 
 int
