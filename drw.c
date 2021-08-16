@@ -264,8 +264,8 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 
 		XRenderSetPictureFilter(drw->dpy, pic, FilterBilinear, NULL, 0);
 		XTransform xf;
-		xf.matrix[0][0] = XDoubleToFixed((double)srcw / dstw); xf.matrix[0][1] = 0; xf.matrix[0][2] = 0;
-		xf.matrix[1][0] = 0; xf.matrix[1][1] = XDoubleToFixed((double)srch / dsth); xf.matrix[1][2] = 0;
+		xf.matrix[0][0] = (srcw << 16u) / dstw; xf.matrix[0][1] = 0; xf.matrix[0][2] = 0;
+		xf.matrix[1][0] = 0; xf.matrix[1][1] = (srch << 16u) / dsth; xf.matrix[1][2] = 0;
 		xf.matrix[2][0] = 0; xf.matrix[2][1] = 0; xf.matrix[2][2] = 65536;
 		XRenderSetPictureTransform(drw->dpy, pic, &xf);
 	} else {
@@ -277,7 +277,6 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 		imlib_free_image_and_decache();
 		if (!scaled) return None;
 		imlib_context_set_image(scaled);
-		imlib_image_set_has_alpha(1);
 		memcpy(tmp, imlib_image_get_data_for_reading_only(), (dstw * dsth) << 2);
 		imlib_free_image_and_decache();
 
