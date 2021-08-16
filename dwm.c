@@ -1183,7 +1183,7 @@ geticonprop(Window win, unsigned int *picw, unsigned int *pich)
 
 	if ((w = *(bstp - 2)) == 0 || (h = *(bstp - 1)) == 0) { XFree(p); return None; }
 
-	uint32_t icw, ich, icsz; // scale icon's largest size axis to ICONSIZE
+	uint32_t icw, ich; // scale icon's largest size axis to ICONSIZE
 	if (w <= h) {
 		ich = ICONSIZE; icw = w * ICONSIZE / h;
 		if (icw == 0) icw = 1;
@@ -1192,7 +1192,6 @@ geticonprop(Window win, unsigned int *picw, unsigned int *pich)
 		icw = ICONSIZE; ich = h * ICONSIZE / w;
 		if (ich == 0) ich = 1;
 	}
-	icsz = icw * ich;
 	*picw = icw; *pich = ich;
 #ifndef NDEBUG
 	fprintf(logfile, "[geticonprop] w=%u, h=%u, icw=%u, ich=%u\n", w, h, icw, ich);
@@ -1361,7 +1360,6 @@ manage(Window w, XWindowAttributes *wa)
 	c->oldbw = wa->border_width;
 
 	/* icon */
-	c->icon = NULL;
 	updateicon(c);
 	updatetitle(c);
 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
