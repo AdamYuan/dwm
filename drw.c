@@ -296,6 +296,11 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 }
 
 void
+drw_free_picture(Drw *drw, Picture pic) {
+	XRenderFreePicture(drw->dpy, pic);
+}
+
+void
 drw_rect(Drw *drw, int x, int y, unsigned int w, unsigned int h, int filled, int invert)
 {
 	if (!drw || !drw->scheme)
