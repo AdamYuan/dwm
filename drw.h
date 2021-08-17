@@ -24,7 +24,6 @@ typedef struct {
 	unsigned int depth;
 	Colormap cmap;
 	Drawable drawable;
-	XRenderPictFormat *picformat;
 	Picture picture;
 	GC gc;
 	Clr *scheme;

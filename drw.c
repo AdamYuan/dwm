@@ -78,9 +78,7 @@ drw_create(Display *dpy, int screen, Window root, unsigned int w, unsigned int h
 	drw->drawable = XCreatePixmap(dpy, root, w, h, depth);
 	drw->gc = XCreateGC(dpy, drw->drawable, 0, NULL);
 	XSetLineAttributes(dpy, drw->gc, 1, LineSolid, CapButt, JoinMiter);
-	drw->picformat = XRenderFindVisualFormat(dpy, visual);
-	XRenderPictureAttributes att;
-	drw->picture = XRenderCreatePicture(dpy, drw->drawable, drw->picformat, 0, &att);
+	drw->picture = XRenderCreatePicture(dpy, drw->drawable, XRenderFindVisualFormat(dpy, visual), 0, NULL);
 
 	return drw;
 }
@@ -247,19 +245,24 @@ drw_setscheme(Drw *drw, Clr *scm)
 
 Picture
 drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int srch, unsigned int dstw, unsigned int dsth, char *tmp) {
-	XImage *xim;
 	Pixmap pm;
 	Picture pic;
+	GC gc;
 
 	if (srcw <= (dstw << 1u) && srch <= (dsth << 1u)) {
-		pm = XCreatePixmap(drw->dpy, drw->root, srcw, srch, drw->depth);
-		xim = XCreateImage(drw->dpy, drw->visual, drw->depth, ZPixmap, 0, src, srcw, srch, 32, 0);
-		XPutImage(drw->dpy, pm, drw->gc, xim, 0, 0, 0, 0, srcw, srch);
-		xim->data = NULL;
-		XDestroyImage(xim);
+		pm = XCreatePixmap(drw->dpy, drw->root, srcw, srch, 32);
+		XImage img = {
+		    srcw, srch, 0, ZPixmap, src,
+		    ImageByteOrder(drw->dpy), BitmapUnit(drw->dpy), BitmapBitOrder(drw->dpy), 32,
+		    32, 0, 32,
+		    0, 0, 0
+		};
+		XInitImage(&img);
+		gc = XCreateGC(drw->dpy, pm, 0, NULL);
+		XPutImage(drw->dpy, pm, gc, &img, 0, 0, 0, 0, srcw, srch);
+		XFreeGC(drw->dpy, gc);
 
-		XRenderPictureAttributes att;
-		pic = XRenderCreatePicture(drw->dpy, pm, drw->picformat, 0, &att);
+		pic = XRenderCreatePicture(drw->dpy, pm, XRenderFindStandardFormat(drw->dpy, PictStandardARGB32), 0, NULL);
 		XFreePixmap(drw->dpy, pm);
 
 		XRenderSetPictureFilter(drw->dpy, pic, FilterBilinear, NULL, 0);
@@ -280,14 +283,19 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 		memcpy(tmp, imlib_image_get_data_for_reading_only(), (dstw * dsth) << 2);
 		imlib_free_image_and_decache();
 
-		pm = XCreatePixmap(drw->dpy, drw->root, dstw, dsth, drw->depth);
-		xim = XCreateImage(drw->dpy, drw->visual, drw->depth, ZPixmap, 0, (char *)tmp, dstw, dsth, 32, 0);
-		XPutImage(drw->dpy, pm, drw->gc, xim, 0, 0, 0, 0, dstw, dsth);
-		xim->data = NULL;
-		XDestroyImage(xim);
+		pm = XCreatePixmap(drw->dpy, drw->root, dstw, dsth, 32);
+		XImage img = {
+		    dstw, dsth, 0, ZPixmap, tmp,
+		    ImageByteOrder(drw->dpy), BitmapUnit(drw->dpy), BitmapBitOrder(drw->dpy), 32,
+		    32, 0, 32,
+		    0, 0, 0
+		};
+		XInitImage(&img);
+		gc = XCreateGC(drw->dpy, pm, 0, NULL);
+		XPutImage(drw->dpy, pm, gc, &img, 0, 0, 0, 0, dstw, dsth);
+		XFreeGC(drw->dpy, gc);
 
-		XRenderPictureAttributes att;
-		pic = XRenderCreatePicture(drw->dpy, pm, drw->picformat, 0, &att);
+		pic = XRenderCreatePicture(drw->dpy, pm, XRenderFindStandardFormat(drw->dpy, PictStandardARGB32), 0, NULL);
 		XFreePixmap(drw->dpy, pm);
 	}
 
