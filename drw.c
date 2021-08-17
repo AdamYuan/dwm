@@ -247,13 +247,12 @@ drw_setscheme(Drw *drw, Clr *scm)
 }
 
 Picture
-drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int srch, unsigned int dstw, unsigned int dsth, char *tmp) {
+drw_picture_create_resized(Drw *drw, char *src, unsigned int srcw, unsigned int srch, unsigned int dstw, unsigned int dsth) {
 	Pixmap pm;
 	Picture pic;
 	GC gc;
 
 	if (srcw <= (dstw << 1u) && srch <= (dsth << 1u)) {
-		pm = XCreatePixmap(drw->dpy, drw->root, srcw, srch, 32);
 		XImage img = {
 		    srcw, srch, 0, ZPixmap, src,
 		    ImageByteOrder(drw->dpy), BitmapUnit(drw->dpy), BitmapBitOrder(drw->dpy), 32,
@@ -261,13 +260,13 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 		    0, 0, 0
 		};
 		XInitImage(&img);
+		pm = XCreatePixmap(drw->dpy, drw->root, srcw, srch, 32);
 		gc = XCreateGC(drw->dpy, pm, 0, NULL);
 		XPutImage(drw->dpy, pm, gc, &img, 0, 0, 0, 0, srcw, srch);
 		XFreeGC(drw->dpy, gc);
 
 		pic = XRenderCreatePicture(drw->dpy, pm, XRenderFindStandardFormat(drw->dpy, PictStandardARGB32), 0, NULL);
 		XFreePixmap(drw->dpy, pm);
-
 		XRenderSetPictureFilter(drw->dpy, pic, FilterBilinear, NULL, 0);
 		XTransform xf;
 		xf.matrix[0][0] = (srcw << 16u) / dstw; xf.matrix[0][1] = 0; xf.matrix[0][2] = 0;
@@ -283,19 +282,18 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 		imlib_free_image_and_decache();
 		if (!scaled) return None;
 		imlib_context_set_image(scaled);
-		memcpy(tmp, imlib_image_get_data_for_reading_only(), (dstw * dsth) << 2);
-		imlib_free_image_and_decache();
-
-		pm = XCreatePixmap(drw->dpy, drw->root, dstw, dsth, 32);
+		imlib_image_set_has_alpha(1);
 		XImage img = {
-		    dstw, dsth, 0, ZPixmap, tmp,
+		    dstw, dsth, 0, ZPixmap, (char *)imlib_image_get_data_for_reading_only(),
 		    ImageByteOrder(drw->dpy), BitmapUnit(drw->dpy), BitmapBitOrder(drw->dpy), 32,
 		    32, 0, 32,
 		    0, 0, 0
 		};
 		XInitImage(&img);
+		pm = XCreatePixmap(drw->dpy, drw->root, dstw, dsth, 32);
 		gc = XCreateGC(drw->dpy, pm, 0, NULL);
 		XPutImage(drw->dpy, pm, gc, &img, 0, 0, 0, 0, dstw, dsth);
+		imlib_free_image_and_decache();
 		XFreeGC(drw->dpy, gc);
 
 		pic = XRenderCreatePicture(drw->dpy, pm, XRenderFindStandardFormat(drw->dpy, PictStandardARGB32), 0, NULL);

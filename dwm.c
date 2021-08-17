@@ -1202,8 +1202,7 @@ geticonprop(Window win, unsigned int *picw, unsigned int *pich)
 	uint32_t i, *bstp32 = (uint32_t *)bstp;
 	for (i = 0; i < sz; ++i) bstp32[i] = prealpha(bstp[i]);
 
-	static char tmp[ICONSIZE * ICONSIZE << 2];
-	Picture ret = drw_create_resized_picture(drw, (char *)bstp, w, h, icw, ich, tmp);
+	Picture ret = drw_picture_create_resized(drw, (char *)bstp, w, h, icw, ich);
 	XFree(p);
 
 	return ret;
