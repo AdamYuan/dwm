@@ -2489,7 +2489,7 @@ updatetitle(Client *c)
 
 void freeicon(Client *c) {
 	if (c->icon) {
-		drw_free_picture(drw, c->icon);
+		XRenderFreePicture(dpy, c->icon);
 		c->icon = None;
 #ifndef NDEBUG
 		fprintf(logfile, "[freeicon] %s\n", c->name);

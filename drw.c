@@ -93,7 +93,10 @@ drw_resize(Drw *drw, unsigned int w, unsigned int h)
 	drw->h = h;
 	if (drw->drawable)
 		XFreePixmap(drw->dpy, drw->drawable);
+	if (drw->picture)
+		XRenderFreePicture(drw->dpy, drw->picture);
 	drw->drawable = XCreatePixmap(drw->dpy, drw->root, w, h, drw->depth);
+	drw->picture = XRenderCreatePicture(drw->dpy, drw->drawable, XRenderFindVisualFormat(drw->dpy, drw->visual), 0, NULL);
 }
 
 void
@@ -300,11 +303,6 @@ drw_create_resized_picture(Drw *drw, char *src, unsigned int srcw, unsigned int 
 	}
 
 	return pic;
-}
-
-void
-drw_free_picture(Drw *drw, Picture pic) {
-	XRenderFreePicture(drw->dpy, pic);
 }
 
 void
