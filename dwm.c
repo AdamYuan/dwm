@@ -870,8 +870,13 @@ drawbar(Monitor *m)
 	unsigned int i, occ = 0, urg = 0;
 	Client *c;
 
-	int nvis = 0; // xfce4-panel width
+	/* preserve space for xfce4-panel */
+	if (m->x4pw > 0) {
+		drw_setscheme(drw, scheme[SchemeNorm]);
+		drw_rect(drw, m->ww - m->x4pw, 0, m->x4pw, bh, 1, 1);
+	}
 
+	int nvis = 0;
 	for (c = m->clients; c; c = c->next) {
 		if (ISVISIBLE(c))
 			++ nvis;
@@ -880,6 +885,7 @@ drawbar(Monitor *m)
 		if (c->isurgent)
 			urg |= c->tags;
 	}
+
 	x = 0;
 	for (i = 0; i < LENGTH(tags); i++) {
 		/* do not draw vacant tags */
@@ -889,10 +895,6 @@ drawbar(Monitor *m)
 		w = TEXTW(tags[i]);
 		drw_setscheme(drw, scheme[urg & 1 << i ? SchemeUrg : (m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm)]);
 		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], 0);
-		//if (occ & 1 << i)
-		//	drw_rect(drw, x + boxs, boxs, boxw, boxw,
-		//		m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
-		//		0);
 		x += w;
 	}
 	w = blw = TEXTW(m->ltsymbol);
@@ -900,7 +902,7 @@ drawbar(Monitor *m)
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
 	if ((w = m->ww - x - m->x4pw) > bh) {
-		if ((nvis > 1) && (m->lt[m->sellt]->arrange == monocle)/* && (!m->sel || !m->sel->isfloating)*/) { // tab mode
+		if ((nvis > 1) && (m->lt[m->sellt]->arrange == monocle)) { // tab mode
 			static int sorted_label_widths[MAXTABS];
 			int tot_width = 0;
 			int maxsize = bh;
@@ -943,10 +945,9 @@ drawbar(Monitor *m)
 				++i;
 			}
 
-			drw_setscheme(drw, scheme[SchemeNorm]);
-
 			/* cleans interspace between window names and current viewed tag label */
-			w = m->ww - x;
+			drw_setscheme(drw, scheme[SchemeNorm]);
+			w = m->ww - m->x4pw - x;
 			if (w >= 0) drw_rect(drw, x, 0, w, bh, 1, 1);
 		} else {
 			m->ntabs = 0;
@@ -955,15 +956,11 @@ drawbar(Monitor *m)
 				drw_setscheme(drw, scheme[m == selmon ? SchemeTitle : SchemeNorm]);
 				drw_text(drw, x, 0, w, bh, lrpad / 2 + (c->icon ? c->icw + ICONSPACING : 0), c->name, 0);
 				if (c->icon) drw_pic(drw, x + lrpad / 2, (bh - c->ich) / 2, c->icw, c->ich, c->icon);
-				if (m->x4pw > 0) {
-					drw_setscheme(drw, scheme[SchemeNorm]);
-					drw_rect(drw, x + w, 0, m->x4pw, bh, 1, 1);
-				}
 				if (c->isfloating)
 					drw_rect(drw, x + boxs, boxs, boxw, boxw, c->isfixed, 0);
 			} else {
 				drw_setscheme(drw, scheme[SchemeNorm]);
-				drw_rect(drw, x, 0, w + m->x4pw, bh, 1, 1);
+				drw_rect(drw, x, 0, w, bh, 1, 1);
 			}
 		}
 	}
