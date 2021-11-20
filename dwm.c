@@ -1165,13 +1165,13 @@ geticonprop(Window win, unsigned int *picw, unsigned int *pich)
 		unsigned long *i; const unsigned long *end = p + n;
 		uint32_t bstd = UINT32_MAX, d, m; // best h, best delta
 		for (i = p; i < end - 1; i += sz) { // prefer the smallest icon that is larger than ICONSIZE
-			if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return None; }
+			if ((w = *i++) >= 16384 || (h = *i++) >= 16384) { XFree(p); return None; }
 			if ((sz = w * h) > end - i) break;
 			if ((m = w > h ? w : h) >= ICONSIZE && (d = m - ICONSIZE) < bstd) { bstd = d; bstp = i; }
 		}
 		if (!bstp) { // fallback to the largest icon smaller than ICONSIZE
 			for (i = p; i < end - 1; i += sz) {
-				if ((w = *i++) > UINT16_MAX || (h = *i++) > UINT16_MAX) { XFree(p); return None; }
+				if ((w = *i++) >= 16384 || (h = *i++) >= 16384) { XFree(p); return None; }
 				if ((sz = w * h) > end - i) break;
 				if ((d = ICONSIZE - (w > h ? w : h)) < bstd) { bstd = d; bstp = i; }
 			}
