@@ -136,9 +136,9 @@ static Key keys[] = {
 	//{MODKEY | ShiftMask, XK_q, quit, {0}},
 	{MODKEY, XK_Return, spawn, {.v = (const char *[]){TERM, NULL}}},
 	{MODKEY, XK_t, spawn, {.v = (const char *[]){"thunar", NULL}}},
-	{MODKEY, XK_w, spawn, {.v = (const char *[]){"chromium", "--force-dark-mode", NULL}}},
+	{MODKEY, XK_w, spawn, {.v = (const char *[]){"firefox", NULL}}},
 	{MODKEY, XK_m, spawn, {.v = (const char *[]){"thunderbird", NULL}}},
-	{0, XK_Print, spawn, {.v = (const char *[]){"xfce4-screenshooter", NULL}}},
+	{0, XK_Print, spawn, {.v = (const char *[]){"scrot", NULL}}},
 
 	// asus controls
 	{0, XF86XK_Launch4, spawn, {.v = (const char *[]){"asusctl", "profile", "-n", NULL}}},

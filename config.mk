@@ -25,7 +25,7 @@ INCS = -I${X11INC} -I${FREETYPEINC}
 LIBS = -L${X11LIB} -lX11 ${XINERAMALIBS} ${FREETYPELIBS} -lImlib2 -lXrender
 
 # flags
-OPTFLAGS = -Ofast -march=native
+OPTFLAGS = -flto -Ofast -march=native
 CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=2 -DVERSION=\"${VERSION}\" ${XINERAMAFLAGS}
 CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations ${OPTFLAGS} ${INCS} ${CPPFLAGS}
 LDFLAGS  = ${LIBS} ${OPTFLAGS}
