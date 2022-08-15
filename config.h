@@ -95,7 +95,7 @@ static const Layout layouts[] = {
 #define TERMRUN TERM " -e "
 
 static const char *rofiruncmd[] = {"rofi", "-show", "drun", "-modi", "drun", "-show-icons", "-font", "Noto Sans 16", "-icon-theme", "Papirus-Dark", "-run-shell-command", TERMRUN "{cmd}", NULL};
-static const char *rofiquitcmd[] = {"rofi", "-show", "p", "-modi", "p:rofi-power-menu", "-font", "NotoSans Nerd Font Regular 16", "-width", "20", "-lines", "4", NULL};
+static const char *rofiquitcmd[] = {"rofi", "-show", "p", "-modi", "p:rofi-power-menu --choices=shutdown/reboot/suspend/logout/lockscreen", "-font", "NotoSans Nerd Font Regular 16", "-width", "20", "-lines", "5", NULL};
 
 static Key keys[] = {
 	/* modifier                     key        function        argument */
