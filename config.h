@@ -48,6 +48,7 @@ static const char *const autostart[] = {
 	"sh", "-c", "GDK_BACKEND=x11 pamac-tray", NULL,
 	"fcitx5", NULL,
 	"nm-applet", NULL,
+	"rog-control-center", NULL,
 	NULL /* terminate */
 };
 
